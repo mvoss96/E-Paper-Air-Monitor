@@ -172,48 +172,53 @@ namespace
         display.drawRect(TEMPERATURE_REGION.x, TEMPERATURE_REGION.y, TEMPERATURE_REGION.w, TEMPERATURE_REGION.h, GxEPD_BLACK);
     }
 
-    void drawHumidity(uint16_t humidity)
+    // Generic function to draw text in a region with specified alignment
+    enum class TextAlignment { LEFT, CENTER, RIGHT };
+    
+    void drawTextInRegion(const DisplayRegion& region, const GFXfont* font, const char* text, TextAlignment alignment)
     {
-        display.setFont(&FreeMonoBold12pt7b);
+        display.setFont(font);
         display.setTextColor(GxEPD_BLACK);
 
-        // Format humidity string
-        char humidityStr[5];
-        sprintf(humidityStr, "%u%%", humidity);
-
-        // Get text bounds for the humidity string
+        // Get text bounds
         int16_t tbx, tby;
         uint16_t tbw, tbh;
-        display.getTextBounds(humidityStr, 0, 0, &tbx, &tby, &tbw, &tbh);
+        display.getTextBounds(text, 0, 0, &tbx, &tby, &tbw, &tbh);
 
-        // Position within the humidity region (left-aligned, vertically centered)
-        const uint16_t posX = HUMIDITY_REGION.x - tbx;
-        const uint16_t posY = HUMIDITY_REGION.y + HUMIDITY_REGION.h / 2 - tby / 2;
+        // Calculate position based on alignment
+        uint16_t posX, posY;
+        
+        switch (alignment) {
+            case TextAlignment::LEFT:
+                posX = region.x - tbx;
+                break;
+            case TextAlignment::CENTER:
+                posX = region.x + (region.w - tbw) / 2 - tbx;
+                break;
+            case TextAlignment::RIGHT:
+                posX = region.x + region.w - tbw - tbx;
+                break;
+        }
+        
+        // Always center vertically
+        posY = region.y + region.h / 2 - tby / 2;
 
         display.setCursor(posX, posY);
-        display.print(humidityStr);
+        display.print(text);
+    }
+
+    void drawHumidity(uint16_t humidity)
+    {
+        char humidityStr[5];
+        sprintf(humidityStr, "%u%%", humidity);
+        drawTextInRegion(HUMIDITY_REGION, &FreeMonoBold12pt7b, humidityStr, TextAlignment::LEFT);
     }
 
     void drawTemperature(uint16_t temperature)
     {
-        display.setFont(&FreeMonoBold12pt7b);
-        display.setTextColor(GxEPD_BLACK);
-
-        // Create temperature string with decimal
         char tempStr[10];
         sprintf(tempStr, "%d.%dC", temperature / 10, temperature % 10);
-
-        // Get text bounds for the temperature string
-        int16_t tbx, tby;
-        uint16_t tbw, tbh;
-        display.getTextBounds(tempStr, 0, 0, &tbx, &tby, &tbw, &tbh);
-
-        // Position within the temperature region (right-aligned, vertically centered)
-        const uint16_t posX = TEMPERATURE_REGION.x + TEMPERATURE_REGION.w - tbw - tbx;
-        const uint16_t posY = TEMPERATURE_REGION.y + TEMPERATURE_REGION.h / 2 - tby / 2;
-
-        display.setCursor(posX, posY);
-        display.print(tempStr);
+        drawTextInRegion(TEMPERATURE_REGION, &FreeMonoBold12pt7b, tempStr, TextAlignment::RIGHT);
     }
 
     void drawCo2(uint16_t co2)
@@ -246,24 +251,9 @@ namespace
 
     void drawClock(uint8_t hours, uint8_t minutes)
     {
-        display.setFont(&FreeMonoBold12pt7b);
-        display.setTextColor(GxEPD_BLACK);
-
-        // Format time string
         char timeStr[6];
         sprintf(timeStr, "%02d:%02d", hours, minutes);
-
-        // Get text bounds for the time string
-        int16_t tbx, tby;
-        uint16_t tbw, tbh;
-        display.getTextBounds(timeStr, 0, 0, &tbx, &tby, &tbw, &tbh);
-
-        // Center both horizontally and vertically within the clock region
-        const uint16_t centerX = CLOCK_REGION.x + (CLOCK_REGION.w - tbw) / 2 - tbx;
-        const uint16_t centerY = CLOCK_REGION.y + CLOCK_REGION.h / 2 - tby / 2;
-        
-        display.setCursor(centerX, centerY);
-        display.print(timeStr);
+        drawTextInRegion(CLOCK_REGION, &FreeMonoBold12pt7b, timeStr, TextAlignment::CENTER);
     }
 };
 
