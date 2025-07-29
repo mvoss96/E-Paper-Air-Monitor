@@ -11,7 +11,7 @@ void setup() {
   setupDisplay();
 
   // Debug-Rahmen einschalten
-  showRegionBorders(true);
+  //showRegionBorders(true);
   
   // Set initial values
   setCo2Value(800);

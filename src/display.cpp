@@ -27,34 +27,28 @@ namespace
     constexpr uint16_t DISPLAY_CENTER_X = DISPLAY_WIDTH / 2;
     constexpr uint16_t DISPLAY_CENTER_Y = DISPLAY_HEIGHT / 2;
     constexpr uint16_t CO2_Y = DISPLAY_CENTER_Y + 17;
+    constexpr uint16_t CLOCK_Y = DISPLAY_MARGIN + 18;                     // Clock baseline Y position
+    constexpr uint16_t BOTTOM_Y = DISPLAY_HEIGHT - (DISPLAY_MARGIN + 17); // Bottom elements baseline Y
 
-    // Define display regions for partial updates
     struct DisplayRegion
     {
         uint16_t x, y, w, h;
     };
 
-    // Helper function to get text bounds for a string with given font
     struct TextBounds
     {
         uint16_t width;
         uint16_t height;
     };
 
-    auto getTextBounds = [](const GFXfont *font, const char *text) -> TextBounds
+    TextBounds getTextBounds(const GFXfont *font, const char *text)
     {
         display.setFont(font);
         int16_t tbx, tby;
         uint16_t tbw, tbh;
         display.getTextBounds(text, 0, 0, &tbx, &tby, &tbw, &tbh);
         return {static_cast<uint16_t>(tbw), static_cast<uint16_t>(tbh)};
-    };
-
-    // Y-positions as constexpr
-    constexpr uint16_t CLOCK_Y = DISPLAY_MARGIN + 18;                     // Clock baseline Y position
-    constexpr uint16_t BOTTOM_Y = DISPLAY_HEIGHT - (DISPLAY_MARGIN + 17); // Bottom elements baseline Y
-
-    // Calculate regions dynamically for partial updates
+    }
 
     // Region for the clock (centered at the top)
     const DisplayRegion CLOCK_REGION = []
@@ -80,9 +74,11 @@ namespace
         uint16_t w = std::max(v.width, p.width) + pad;   // Width: max of value or label + padding
         uint16_t h = v.height + p.height + vspace + pad; // Height: value + label + spacing + padding
         return DisplayRegion{
-            static_cast<uint16_t>(DISPLAY_WIDTH - w), // Right-aligned
-            static_cast<uint16_t>(CO2_Y - h / 2),     // Vertically centered on CO2_Y
-            w, h};
+            static_cast<uint16_t>(DISPLAY_WIDTH - w),  // Right-aligned
+            static_cast<uint16_t>(CO2_Y - h / 2 - 15u), // Vertically centered on CO2_Y
+            w,                                         // Width with padding
+            h                                          // Height with padding
+        };
     }();
 
     // Region for humidity (bottom left)
@@ -92,10 +88,11 @@ namespace
         auto [w, h] = getTextBounds(&FreeMonoBold12pt7b, "100%");
         constexpr uint16_t pad = 2; // Padding around the text
         return DisplayRegion{
-            DISPLAY_MARGIN, // Left margin
-            BOTTOM_Y,       // Baseline Y for bottom elements
-            static_cast<uint16_t>(w + pad),
-            static_cast<uint16_t>(h + pad)};
+            DISPLAY_MARGIN,                 // Left margin
+            BOTTOM_Y,                       // Baseline Y for bottom elements
+            static_cast<uint16_t>(w + pad), // Width with padding
+            static_cast<uint16_t>(h + pad)  // Height with padding
+        };
     }();
 
     // Region for temperature (bottom right)
@@ -107,11 +104,11 @@ namespace
         return DisplayRegion{
             static_cast<uint16_t>(DISPLAY_WIDTH - DISPLAY_MARGIN - w - pad), // Right-aligned
             BOTTOM_Y,                                                        // Baseline Y for bottom elements
-            static_cast<uint16_t>(w + pad),
-            static_cast<uint16_t>(h + pad)};
+            static_cast<uint16_t>(w + pad),                                  // Width with padding
+            static_cast<uint16_t>(h + pad)                                   // Height with padding
+        };
     }();
 
-    // Cache current values to detect changes
     struct DisplayState
     {
         uint16_t co2 = 0;
@@ -173,9 +170,14 @@ namespace
     }
 
     // Generic function to draw text in a region with specified alignment
-    enum class TextAlignment { LEFT, CENTER, RIGHT };
-    
-    void drawTextInRegion(const DisplayRegion& region, const GFXfont* font, const char* text, TextAlignment alignment)
+    enum class TextAlignment
+    {
+        LEFT,
+        CENTER,
+        RIGHT
+    };
+
+    void drawTextInRegion(const DisplayRegion &region, const GFXfont *font, const char *text, TextAlignment alignment)
     {
         display.setFont(font);
         display.setTextColor(GxEPD_BLACK);
@@ -187,19 +189,20 @@ namespace
 
         // Calculate position based on alignment
         uint16_t posX, posY;
-        
-        switch (alignment) {
-            case TextAlignment::LEFT:
-                posX = region.x - tbx;
-                break;
-            case TextAlignment::CENTER:
-                posX = region.x + (region.w - tbw) / 2 - tbx;
-                break;
-            case TextAlignment::RIGHT:
-                posX = region.x + region.w - tbw - tbx;
-                break;
+
+        switch (alignment)
+        {
+        case TextAlignment::LEFT:
+            posX = region.x - tbx;
+            break;
+        case TextAlignment::CENTER:
+            posX = region.x + (region.w - tbw) / 2 - tbx;
+            break;
+        case TextAlignment::RIGHT:
+            posX = region.x + region.w - tbw - tbx;
+            break;
         }
-        
+
         // Always center vertically
         posY = region.y + region.h / 2 - tby / 2;
 
@@ -221,39 +224,44 @@ namespace
         drawTextInRegion(TEMPERATURE_REGION, &FreeMonoBold12pt7b, tempStr, TextAlignment::RIGHT);
     }
 
-    void drawCo2(uint16_t co2)
-    {
-        display.setFont(&FreeMonoBold30pt7b);
-        display.setTextColor(GxEPD_BLACK);
-
-        char co2Str[8];
-        snprintf(co2Str, sizeof(co2Str), "%u", co2);
-
-        // Get bounds and calculate position for CO2 value
-        int16_t tbx, tby;
-        uint16_t tbw, tbh;
-        display.getTextBounds(co2Str, 0, 0, &tbx, &tby, &tbw, &tbh);
-
-        const int16_t co2X = DISPLAY_WIDTH - 10 - tbw - tbx;
-
-        display.setCursor(co2X, CO2_Y);
-        display.print(co2Str);
-
-        // Draw ppm label at fixed offset below CO2 value
-        display.setFont(&FreeMonoBold9pt7b);
-        const char *ppmStr = "ppm";
-        display.getTextBounds(ppmStr, 0, 0, &tbx, &tby, &tbw, &tbh);
-
-        // Reuse co2X calculation but adjust for ppm text width, fixed Y offset of 25
-        display.setCursor(DISPLAY_WIDTH - 10 - tbw - tbx, CO2_Y + 25);
-        display.print(ppmStr);
-    }
-
     void drawClock(uint8_t hours, uint8_t minutes)
     {
         char timeStr[6];
         sprintf(timeStr, "%02d:%02d", hours, minutes);
         drawTextInRegion(CLOCK_REGION, &FreeMonoBold12pt7b, timeStr, TextAlignment::CENTER);
+    }
+
+    void drawCo2(uint16_t co2)
+    {
+        // Draw CO2 value
+        char co2Str[8];
+        snprintf(co2Str, sizeof(co2Str), "%u", co2);
+
+        // Calculate position for CO2 value within the region
+        display.setFont(&FreeMonoBold30pt7b);
+        int16_t tbx, tby;
+        uint16_t tbw, tbh;
+        display.getTextBounds(co2Str, 0, 0, &tbx, &tby, &tbw, &tbh);
+
+        // Position CO2 value in upper part of the region (right-aligned)
+        uint16_t co2X = CO2_REGION.x + CO2_REGION.w - tbw - tbx;
+        uint16_t co2Y = CO2_REGION.y + tbh + 5; // 5px from top of region
+
+        display.setTextColor(GxEPD_BLACK);
+        display.setCursor(co2X, co2Y);
+        display.print(co2Str);
+
+        // Draw ppm label below CO2 value
+        const char *ppmStr = "ppm";
+        display.setFont(&FreeMonoBold9pt7b);
+        display.getTextBounds(ppmStr, 0, 0, &tbx, &tby, &tbw, &tbh);
+
+        // Position ppm label in lower part of the region (right-aligned)
+        uint16_t ppmX = CO2_REGION.x + CO2_REGION.w - tbw - tbx;
+        uint16_t ppmY = CO2_REGION.y + CO2_REGION.h - 5; // 5px from bottom of region
+
+        display.setCursor(ppmX, ppmY);
+        display.print(ppmStr);
     }
 };
 
