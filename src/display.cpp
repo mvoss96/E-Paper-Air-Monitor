@@ -26,12 +26,22 @@ namespace
     void drawBackground()
     {
         // Calculate positions for the two horizontal lines
-        uint16_t firstLineY = 2 * DISPLAY_MARGIN + 18;
-        uint16_t secondLineY = DISPLAY_HEIGHT - 2 * DISPLAY_MARGIN - 18;
+        const uint16_t firstLineY = 2 * DISPLAY_MARGIN + 18;
+        const uint16_t secondLineY = DISPLAY_HEIGHT - 2 * DISPLAY_MARGIN - 18;
 
         // Draw the two horizontal lines
         display.drawLine(DISPLAY_MARGIN, firstLineY, DISPLAY_WIDTH - DISPLAY_MARGIN, firstLineY, GxEPD_BLACK);
         display.drawLine(DISPLAY_MARGIN, secondLineY, DISPLAY_WIDTH - DISPLAY_MARGIN, secondLineY, GxEPD_BLACK);
+
+        // Draw ppm text
+        display.setFont(&FreeMonoBold9pt7b);
+        const char* ppmStr = "ppm";
+        int16_t ppx, ppy;
+        uint16_t ppw, pph;
+        display.getTextBounds(ppmStr, 0, 0, &ppx, &ppy, &ppw, &pph);
+        
+        display.setCursor(DISPLAY_WIDTH - 10 - ppw - ppx, DISPLAY_HEIGHT / 2 + pph + 25);
+        display.print(ppmStr);
     }
 
     void drawHumidity(uint16_t humidity)
@@ -56,29 +66,16 @@ namespace
 
         // Create temperature string with decimal
         char tempStr[10];
-        int wholePart = temperature / 10;
-        int decimalPart = temperature % 10;
-        sprintf(tempStr, "%d.%dC", wholePart, decimalPart);
+        sprintf(tempStr, "%d.%dC", temperature / 10, temperature % 10);
 
-        // Get text bounds to calculate width for right alignment
+        // Get text bounds for right alignment
         int16_t tbx, tby;
         uint16_t tbw, tbh;
         display.getTextBounds(tempStr, 0, 0, &tbx, &tby, &tbw, &tbh);
 
-        // Position text right-aligned with margin
-        uint16_t x = DISPLAY_WIDTH - DISPLAY_MARGIN - tbw;
-        uint16_t y = DISPLAY_HEIGHT - DISPLAY_MARGIN;
-
-        display.setCursor(x, y);
-        display.print(wholePart);
-        display.print(".");
-        display.print(decimalPart);
-
-        // Get current cursor position to draw degree symbol
-        int16_t cursorX = display.getCursorX();
-        int16_t cursorY = display.getCursorY();
-
-        display.print("C");
+        // Position and print right-aligned
+        display.setCursor(DISPLAY_WIDTH - DISPLAY_MARGIN - tbw, DISPLAY_HEIGHT - DISPLAY_MARGIN);
+        display.print(tempStr);
     }
 
     void drawCo2(uint16_t co2)
@@ -89,23 +86,13 @@ namespace
         char co2Str[8];
         snprintf(co2Str, sizeof(co2Str), "%u", co2);
 
+        // Get bounds and center position
         int16_t tbx, tby;
         uint16_t tbw, tbh;
         display.getTextBounds(co2Str, 0, 0, &tbx, &tby, &tbw, &tbh);
-        int16_t x = DISPLAY_WIDTH - 10 - tbw - tbx;
-        int16_t y = (DISPLAY_HEIGHT / 2) + (tbh / 2);
-        display.setCursor(x, y);
+        
+        display.setCursor(DISPLAY_WIDTH - 10 - tbw - tbx, (DISPLAY_HEIGHT / 2) + (tbh / 2));
         display.print(co2Str);
-
-        display.setFont(&FreeMonoBold9pt7b); // Smaller font
-        String ppmStr = "ppm";
-        int16_t ppx, ppy;
-        uint16_t ppw, pph;
-        display.getTextBounds(ppmStr, 0, 0, &ppx, &ppy, &ppw, &pph);
-        int16_t px = display.width() - 10 - ppw - ppx;
-        int16_t py = y + pph + 5; // 5px below CO2 text
-        display.setCursor(px, py);
-        display.print(ppmStr);
     }
 
     void drawClock()
@@ -114,21 +101,15 @@ namespace
         display.setTextColor(GxEPD_BLACK);
         
         // Example time - in real implementation you would get this from RTC
-        char timeStr[8];
-        sprintf(timeStr, "12:45");
+        const char* timeStr = "12:45";
         
-        // Get text bounds to calculate width for horizontal centering
+        // Get text bounds for centering
         int16_t tbx, tby;
         uint16_t tbw, tbh;
         display.getTextBounds(timeStr, 0, 0, &tbx, &tby, &tbw, &tbh);
         
-        // Calculate horizontal center position
-        int16_t x = (DISPLAY_WIDTH - tbw) / 2 - tbx;
-        
-        // Position with margin from top
-        int16_t y = DISPLAY_MARGIN + tbh;
-        
-        display.setCursor(x, y);
+        // Center horizontally and position with top margin
+        display.setCursor((DISPLAY_WIDTH - tbw) / 2 - tbx, DISPLAY_MARGIN + tbh);
         display.print(timeStr);
     }
 };
@@ -154,7 +135,6 @@ void updateDisplay()
     display.firstPage();
     do
     {
-        // Draw background and other elements here
         drawBackground();
         drawHumidity(52);
         drawTemperature(222);
