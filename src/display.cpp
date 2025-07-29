@@ -50,52 +50,66 @@ namespace
         return {static_cast<uint16_t>(tbw), static_cast<uint16_t>(tbh)};
     };
 
-    // Calculate dynamic regions based on actual text dimensions
-    const uint16_t BOTTOM_Y = DISPLAY_HEIGHT - (DISPLAY_MARGIN + 17);
+    // Y-positions as constexpr
+    constexpr uint16_t CLOCK_Y = DISPLAY_MARGIN + 18;                     // Clock baseline Y position
+    constexpr uint16_t BOTTOM_Y = DISPLAY_HEIGHT - (DISPLAY_MARGIN + 17); // Bottom elements baseline Y
 
-    // Clock region - centered at top, sized for "88:88"
-    const TextBounds clockBounds = getTextBounds(&FreeMonoBold12pt7b, "88:88");
-    const uint16_t CLOCK_PADDING = 4; // Small padding around text
-    const DisplayRegion CLOCK_REGION = {
-        static_cast<uint16_t>(std::max(0, static_cast<int>(DISPLAY_CENTER_X) - static_cast<int>((clockBounds.width + CLOCK_PADDING) / 2))), // x: centered horizontally, clamped to 0
-        0,                                                                                                                                  // y: at top
-        static_cast<uint16_t>(clockBounds.width + CLOCK_PADDING),                                                                           // width: text width + padding
-        static_cast<uint16_t>(clockBounds.height + CLOCK_PADDING)                                                                           // height: text height + padding
-    };
+    // Calculate regions dynamically for partial updates
 
-    // CO2 region - right side, middle area, sized for "9999" + "ppm"
-    const TextBounds co2ValueBounds = getTextBounds(&FreeMonoBold30pt7b, "9999");
-    const TextBounds ppmBounds = getTextBounds(&FreeMonoBold9pt7b, "ppm");
-    const uint16_t CO2_PADDING = 10;
-    const uint16_t CO2_VERTICAL_SPACING = 25; // Space between value and ppm label
-    const uint16_t CO2_WIDTH = std::max(co2ValueBounds.width, ppmBounds.width) + CO2_PADDING;
-    const uint16_t CO2_HEIGHT = co2ValueBounds.height + ppmBounds.height + CO2_VERTICAL_SPACING + CO2_PADDING;
-    const DisplayRegion CO2_REGION = {
-        static_cast<uint16_t>(DISPLAY_WIDTH - CO2_WIDTH), // x: right aligned
-        static_cast<uint16_t>(CO2_Y - (CO2_HEIGHT / 2)),  // y: centered around CO2_Y baseline
-        CO2_WIDTH,                                        // width: max of value and ppm width + padding
-        CO2_HEIGHT                                        // height: both texts + spacing + padding
-    };
+    // Region for the clock (centered at the top)
+    const DisplayRegion CLOCK_REGION = []
+    {
+        // Get bounds for "88:88" (widest possible time string)
+        auto [w, h] = getTextBounds(&FreeMonoBold12pt7b, "88:88");
+        constexpr uint16_t pad = 4; // Padding around the text
+        return DisplayRegion{
+            static_cast<uint16_t>(DISPLAY_CENTER_X - (w + pad) / 2), // Center horizontally
+            0,                                                       // Top of the display
+            static_cast<uint16_t>(w + pad),                          // Width with padding
+            static_cast<uint16_t>(h + pad)                           // Height with padding
+        };
+    }();
 
-    // Humidity region - bottom left, sized for "100%"
-    auto [humidityWidth, humidityHeight] = getTextBounds(&FreeMonoBold12pt7b, "100%");
-    const uint16_t HUMIDITY_PADDING = 2;
-    const DisplayRegion HUMIDITY_REGION = {
-        DISPLAY_MARGIN,                                          // x: left margin
-        BOTTOM_Y,                                                // y: bottom area
-        static_cast<uint16_t>(humidityWidth + HUMIDITY_PADDING), // width: text width + padding
-        static_cast<uint16_t>(humidityHeight + HUMIDITY_PADDING) // height: text height + padding
-    };
+    // Region for CO2 value and "ppm" label (right side, vertically centered)
+    const DisplayRegion CO2_REGION = []
+    {
+        // Get bounds for CO2 value and "ppm" label
+        auto v = getTextBounds(&FreeMonoBold30pt7b, "9999"); // Max 4-digit CO2 value
+        auto p = getTextBounds(&FreeMonoBold9pt7b, "ppm");
+        constexpr uint16_t pad = 10, vspace = 25;        // Padding and vertical space between value and label
+        uint16_t w = std::max(v.width, p.width) + pad;   // Width: max of value or label + padding
+        uint16_t h = v.height + p.height + vspace + pad; // Height: value + label + spacing + padding
+        return DisplayRegion{
+            static_cast<uint16_t>(DISPLAY_WIDTH - w), // Right-aligned
+            static_cast<uint16_t>(CO2_Y - h / 2),     // Vertically centered on CO2_Y
+            w, h};
+    }();
 
-    // Temperature region - bottom right, sized for "99.9C"
-    auto [temperatureWidth, temperatureHeight] = getTextBounds(&FreeMonoBold12pt7b, "99.9C");
-    const uint16_t TEMPERATURE_PADDING = 2;
-    const DisplayRegion TEMPERATURE_REGION = {
-        static_cast<uint16_t>(DISPLAY_WIDTH - DISPLAY_MARGIN - static_cast<uint16_t>(temperatureWidth + TEMPERATURE_PADDING)), // x: right aligned with margin
-        BOTTOM_Y,                                                                                                              // y: bottom area (same as humidity)
-        static_cast<uint16_t>(temperatureWidth + TEMPERATURE_PADDING),                                                         // width: text width + padding
-        static_cast<uint16_t>(temperatureHeight + TEMPERATURE_PADDING)                                                         // height: text height + padding
-    };
+    // Region for humidity (bottom left)
+    const DisplayRegion HUMIDITY_REGION = []
+    {
+        // Get bounds for "100%" (widest possible humidity string)
+        auto [w, h] = getTextBounds(&FreeMonoBold12pt7b, "100%");
+        constexpr uint16_t pad = 2; // Padding around the text
+        return DisplayRegion{
+            DISPLAY_MARGIN, // Left margin
+            BOTTOM_Y,       // Baseline Y for bottom elements
+            static_cast<uint16_t>(w + pad),
+            static_cast<uint16_t>(h + pad)};
+    }();
+
+    // Region for temperature (bottom right)
+    const DisplayRegion TEMPERATURE_REGION = []
+    {
+        // Get bounds for "99.9C" (widest possible temperature string)
+        auto [w, h] = getTextBounds(&FreeMonoBold12pt7b, "99.9C");
+        constexpr uint16_t pad = 2; // Padding around the text
+        return DisplayRegion{
+            static_cast<uint16_t>(DISPLAY_WIDTH - DISPLAY_MARGIN - w - pad), // Right-aligned
+            BOTTOM_Y,                                                        // Baseline Y for bottom elements
+            static_cast<uint16_t>(w + pad),
+            static_cast<uint16_t>(h + pad)};
+    }();
 
     // Cache current values to detect changes
     struct DisplayState
@@ -112,9 +126,9 @@ namespace
 
     void drawBackground()
     {
-        // Calculate positions for the two horizontal lines
-        const uint16_t firstLineY = 2 * DISPLAY_MARGIN + 18;
-        const uint16_t secondLineY = DISPLAY_HEIGHT - 2 * DISPLAY_MARGIN - 18;
+        // Calculate positions for the two horizontal lines using constexpr positions
+        constexpr uint16_t firstLineY = 2 * DISPLAY_MARGIN + 18;
+        constexpr uint16_t secondLineY = DISPLAY_HEIGHT - 2 * DISPLAY_MARGIN - 18;
 
         // Draw the two horizontal lines
         display.drawLine(DISPLAY_MARGIN, firstLineY, DISPLAY_WIDTH - DISPLAY_MARGIN, firstLineY, GxEPD_BLACK);
@@ -162,15 +176,22 @@ namespace
     {
         display.setFont(&FreeMonoBold12pt7b);
         display.setTextColor(GxEPD_BLACK);
-        display.setCursor(DISPLAY_MARGIN, DISPLAY_HEIGHT - DISPLAY_MARGIN);
 
-        // Add leading space for single digit values to align the % symbol
-        if (humidity < 10)
-        {
-            display.print(" ");
-        }
-        display.print(humidity);
-        display.print("%");
+        // Format humidity string
+        char humidityStr[5];
+        sprintf(humidityStr, "%u%%", humidity);
+
+        // Get text bounds for the humidity string
+        int16_t tbx, tby;
+        uint16_t tbw, tbh;
+        display.getTextBounds(humidityStr, 0, 0, &tbx, &tby, &tbw, &tbh);
+
+        // Position within the humidity region (left-aligned, vertically centered)
+        const uint16_t posX = HUMIDITY_REGION.x - tbx;
+        const uint16_t posY = HUMIDITY_REGION.y + HUMIDITY_REGION.h / 2 - tby / 2;
+
+        display.setCursor(posX, posY);
+        display.print(humidityStr);
     }
 
     void drawTemperature(uint16_t temperature)
@@ -182,13 +203,16 @@ namespace
         char tempStr[10];
         sprintf(tempStr, "%d.%dC", temperature / 10, temperature % 10);
 
-        // Get text bounds for right alignment
+        // Get text bounds for the temperature string
         int16_t tbx, tby;
         uint16_t tbw, tbh;
         display.getTextBounds(tempStr, 0, 0, &tbx, &tby, &tbw, &tbh);
 
-        // Position and print right-aligned
-        display.setCursor(DISPLAY_WIDTH - DISPLAY_MARGIN - tbw, DISPLAY_HEIGHT - DISPLAY_MARGIN);
+        // Position within the temperature region (right-aligned, vertically centered)
+        const uint16_t posX = TEMPERATURE_REGION.x + TEMPERATURE_REGION.w - tbw - tbx;
+        const uint16_t posY = TEMPERATURE_REGION.y + TEMPERATURE_REGION.h / 2 - tby / 2;
+
+        display.setCursor(posX, posY);
         display.print(tempStr);
     }
 
@@ -229,13 +253,16 @@ namespace
         char timeStr[6];
         sprintf(timeStr, "%02d:%02d", hours, minutes);
 
-        // Get text bounds for centering
+        // Get text bounds for the time string
         int16_t tbx, tby;
         uint16_t tbw, tbh;
         display.getTextBounds(timeStr, 0, 0, &tbx, &tby, &tbw, &tbh);
 
-        // Center horizontally and position with top margin
-        display.setCursor((DISPLAY_WIDTH - tbw) / 2 - tbx, DISPLAY_MARGIN + tbh);
+        // Center both horizontally and vertically within the clock region
+        const uint16_t centerX = CLOCK_REGION.x + (CLOCK_REGION.w - tbw) / 2 - tbx;
+        const uint16_t centerY = CLOCK_REGION.y + CLOCK_REGION.h / 2 - tby / 2;
+        
+        display.setCursor(centerX, centerY);
         display.print(timeStr);
     }
 };
