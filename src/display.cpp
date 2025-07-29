@@ -107,6 +107,30 @@ namespace
         display.setCursor(px, py);
         display.print(ppmStr);
     }
+
+    void drawClock()
+    {
+        display.setFont(&FreeMonoBold12pt7b);
+        display.setTextColor(GxEPD_BLACK);
+        
+        // Example time - in real implementation you would get this from RTC
+        char timeStr[8];
+        sprintf(timeStr, "12:45");
+        
+        // Get text bounds to calculate width for horizontal centering
+        int16_t tbx, tby;
+        uint16_t tbw, tbh;
+        display.getTextBounds(timeStr, 0, 0, &tbx, &tby, &tbw, &tbh);
+        
+        // Calculate horizontal center position
+        int16_t x = (DISPLAY_WIDTH - tbw) / 2 - tbx;
+        
+        // Position with margin from top
+        int16_t y = DISPLAY_MARGIN + tbh;
+        
+        display.setCursor(x, y);
+        display.print(timeStr);
+    }
 };
 
 void setupDisplay()
@@ -135,5 +159,6 @@ void updateDisplay()
         drawHumidity(52);
         drawTemperature(222);
         drawCo2(800);
+        drawClock();
     } while (display.nextPage());
 }
