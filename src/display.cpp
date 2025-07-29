@@ -6,6 +6,8 @@
 #include <Fonts/FreeMonoBold12pt7b.h>
 #include <Fonts/FreeMonoBold9pt7b.h>
 #include <SPI.h>
+#include <algorithm>
+#include <utility>
 
 // Pin definitions
 #define PIN_SCLK 4
@@ -32,11 +34,68 @@ namespace
         uint16_t x, y, w, h;
     };
 
-    // Calculate regions based on content positioning
-    const DisplayRegion CLOCK_REGION = {DISPLAY_CENTER_X - 35, 0, 70, 20};
-    const DisplayRegion CO2_REGION = {DISPLAY_WIDTH - 150, CO2_Y - 40, 150, 72};
-    const DisplayRegion HUMIDITY_REGION = {DISPLAY_MARGIN, DISPLAY_HEIGHT - (DISPLAY_MARGIN + 17), 45, 19};
-    const DisplayRegion TEMPERATURE_REGION = {DISPLAY_WIDTH - DISPLAY_MARGIN - 85, DISPLAY_HEIGHT - (DISPLAY_MARGIN + 17), 85, 19};
+    // Helper function to get text bounds for a string with given font
+    struct TextBounds
+    {
+        uint16_t width;
+        uint16_t height;
+    };
+
+    auto getTextBounds = [](const GFXfont *font, const char *text) -> TextBounds
+    {
+        display.setFont(font);
+        int16_t tbx, tby;
+        uint16_t tbw, tbh;
+        display.getTextBounds(text, 0, 0, &tbx, &tby, &tbw, &tbh);
+        return {static_cast<uint16_t>(tbw), static_cast<uint16_t>(tbh)};
+    };
+
+    // Calculate dynamic regions based on actual text dimensions
+    const uint16_t BOTTOM_Y = DISPLAY_HEIGHT - (DISPLAY_MARGIN + 17);
+
+    // Clock region - centered at top, sized for "88:88"
+    const TextBounds clockBounds = getTextBounds(&FreeMonoBold12pt7b, "88:88");
+    const uint16_t CLOCK_PADDING = 4; // Small padding around text
+    const DisplayRegion CLOCK_REGION = {
+        static_cast<uint16_t>(std::max(0, static_cast<int>(DISPLAY_CENTER_X) - static_cast<int>((clockBounds.width + CLOCK_PADDING) / 2))), // x: centered horizontally, clamped to 0
+        0,                                                                                                                                  // y: at top
+        static_cast<uint16_t>(clockBounds.width + CLOCK_PADDING),                                                                           // width: text width + padding
+        static_cast<uint16_t>(clockBounds.height + CLOCK_PADDING)                                                                           // height: text height + padding
+    };
+
+    // CO2 region - right side, middle area, sized for "9999" + "ppm"
+    const TextBounds co2ValueBounds = getTextBounds(&FreeMonoBold30pt7b, "9999");
+    const TextBounds ppmBounds = getTextBounds(&FreeMonoBold9pt7b, "ppm");
+    const uint16_t CO2_PADDING = 10;
+    const uint16_t CO2_VERTICAL_SPACING = 25; // Space between value and ppm label
+    const uint16_t CO2_WIDTH = std::max(co2ValueBounds.width, ppmBounds.width) + CO2_PADDING;
+    const uint16_t CO2_HEIGHT = co2ValueBounds.height + ppmBounds.height + CO2_VERTICAL_SPACING + CO2_PADDING;
+    const DisplayRegion CO2_REGION = {
+        static_cast<uint16_t>(DISPLAY_WIDTH - CO2_WIDTH), // x: right aligned
+        static_cast<uint16_t>(CO2_Y - (CO2_HEIGHT / 2)),  // y: centered around CO2_Y baseline
+        CO2_WIDTH,                                        // width: max of value and ppm width + padding
+        CO2_HEIGHT                                        // height: both texts + spacing + padding
+    };
+
+    // Humidity region - bottom left, sized for "100%"
+    auto [humidityWidth, humidityHeight] = getTextBounds(&FreeMonoBold12pt7b, "100%");
+    const uint16_t HUMIDITY_PADDING = 2;
+    const DisplayRegion HUMIDITY_REGION = {
+        DISPLAY_MARGIN,                                          // x: left margin
+        BOTTOM_Y,                                                // y: bottom area
+        static_cast<uint16_t>(humidityWidth + HUMIDITY_PADDING), // width: text width + padding
+        static_cast<uint16_t>(humidityHeight + HUMIDITY_PADDING) // height: text height + padding
+    };
+
+    // Temperature region - bottom right, sized for "99.9C"
+    auto [temperatureWidth, temperatureHeight] = getTextBounds(&FreeMonoBold12pt7b, "99.9C");
+    const uint16_t TEMPERATURE_PADDING = 2;
+    const DisplayRegion TEMPERATURE_REGION = {
+        static_cast<uint16_t>(DISPLAY_WIDTH - DISPLAY_MARGIN - static_cast<uint16_t>(temperatureWidth + TEMPERATURE_PADDING)), // x: right aligned with margin
+        BOTTOM_Y,                                                                                                              // y: bottom area (same as humidity)
+        static_cast<uint16_t>(temperatureWidth + TEMPERATURE_PADDING),                                                         // width: text width + padding
+        static_cast<uint16_t>(temperatureHeight + TEMPERATURE_PADDING)                                                         // height: text height + padding
+    };
 
     // Cache current values to detect changes
     struct DisplayState
