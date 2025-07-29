@@ -22,7 +22,34 @@ namespace
     constexpr uint16_t DISPLAY_WIDTH = GxEPD2_154_D67::WIDTH_VISIBLE;
     constexpr uint16_t DISPLAY_HEIGHT = GxEPD2_154_D67::HEIGHT;
     constexpr uint16_t DISPLAY_MARGIN = 2;
-    constexpr int16_t CO2_Y = (DISPLAY_HEIGHT / 2) + (35 / 2);
+    constexpr uint16_t DISPLAY_CENTER_X = DISPLAY_WIDTH / 2;
+    constexpr uint16_t DISPLAY_CENTER_Y = DISPLAY_HEIGHT / 2;
+    constexpr uint16_t CO2_Y = DISPLAY_CENTER_Y + 17;
+
+    // Define display regions for partial updates
+    struct DisplayRegion
+    {
+        uint16_t x, y, w, h;
+    };
+
+    // Calculate regions based on content positioning
+    const DisplayRegion CLOCK_REGION = {DISPLAY_CENTER_X - 35, 0, 70, 20};
+    const DisplayRegion CO2_REGION = {DISPLAY_WIDTH - 150, CO2_Y - 40, 150, 72};
+    const DisplayRegion HUMIDITY_REGION = {DISPLAY_MARGIN, DISPLAY_HEIGHT - (DISPLAY_MARGIN + 17), 45, 19};
+    const DisplayRegion TEMPERATURE_REGION = {DISPLAY_WIDTH - DISPLAY_MARGIN - 85, DISPLAY_HEIGHT - (DISPLAY_MARGIN + 17), 85, 19};
+
+    // Cache current values to detect changes
+    struct DisplayState
+    {
+        uint16_t co2 = 0;
+        uint16_t temperature = 0;
+        uint16_t humidity = 0;
+        uint8_t hours = 255;
+        uint8_t minutes = 255;
+    } currentState, previousState;
+
+    // Debug flag for showing region borders
+    bool showBorders = false;
 
     void drawBackground()
     {
@@ -33,6 +60,43 @@ namespace
         // Draw the two horizontal lines
         display.drawLine(DISPLAY_MARGIN, firstLineY, DISPLAY_WIDTH - DISPLAY_MARGIN, firstLineY, GxEPD_BLACK);
         display.drawLine(DISPLAY_MARGIN, secondLineY, DISPLAY_WIDTH - DISPLAY_MARGIN, secondLineY, GxEPD_BLACK);
+    }
+
+    void clearRegion(const DisplayRegion &region)
+    {
+        display.fillRect(region.x, region.y, region.w, region.h, GxEPD_WHITE);
+    }
+
+    template <typename DrawFunction>
+    void updatePartialRegion(const DisplayRegion &region, DrawFunction drawFunction)
+    {
+        display.setPartialWindow(region.x, region.y, region.w, region.h);
+        display.firstPage();
+        do
+        {
+            clearRegion(region);
+            drawFunction();
+            if (showBorders)
+            {
+                display.drawRect(region.x, region.y, region.w, region.h, GxEPD_BLACK);
+            }
+        } while (display.nextPage());
+    }
+
+    void drawRegionBorders()
+    {
+        // Draw borders around all regions for debugging
+        // CLOCK_REGION
+        display.drawRect(CLOCK_REGION.x, CLOCK_REGION.y, CLOCK_REGION.w, CLOCK_REGION.h, GxEPD_BLACK);
+
+        // CO2_REGION
+        display.drawRect(CO2_REGION.x, CO2_REGION.y, CO2_REGION.w, CO2_REGION.h, GxEPD_BLACK);
+
+        // HUMIDITY_REGION
+        display.drawRect(HUMIDITY_REGION.x, HUMIDITY_REGION.y, HUMIDITY_REGION.w, HUMIDITY_REGION.h, GxEPD_BLACK);
+
+        // TEMPERATURE_REGION
+        display.drawRect(TEMPERATURE_REGION.x, TEMPERATURE_REGION.y, TEMPERATURE_REGION.w, TEMPERATURE_REGION.h, GxEPD_BLACK);
     }
 
     void drawHumidity(uint16_t humidity)
@@ -129,19 +193,70 @@ void setupDisplay()
     do
     {
         display.fillScreen(GxEPD_WHITE);
+        drawBackground();
+        if (showBorders)
+        {
+            drawRegionBorders(); // Draw debug borders only if enabled
+        }
     } while (display.nextPage());
 }
 
 void updateDisplay()
 {
-    display.setFullWindow();
-    display.firstPage();
-    do
+    // Check for changes and update only changed regions
+    if (currentState.co2 != previousState.co2 && currentState.co2 > 0)
     {
-        drawBackground();
-        drawHumidity(52);
-        drawTemperature(222);
-        drawClock(12, 45);
-        drawCo2(800); // Now includes ppm label
-    } while (display.nextPage());
+        updatePartialRegion(CO2_REGION, [=]()
+                            { drawCo2(currentState.co2); });
+        previousState.co2 = currentState.co2;
+    }
+
+    if (currentState.temperature != previousState.temperature && currentState.temperature > 0)
+    {
+        updatePartialRegion(TEMPERATURE_REGION, [=]()
+                            { drawTemperature(currentState.temperature); });
+        previousState.temperature = currentState.temperature;
+    }
+
+    if (currentState.humidity != previousState.humidity && currentState.humidity > 0)
+    {
+        updatePartialRegion(HUMIDITY_REGION, [=]()
+                            { drawHumidity(currentState.humidity); });
+        previousState.humidity = currentState.humidity;
+    }
+
+    if ((currentState.hours != previousState.hours || currentState.minutes != previousState.minutes) &&
+        currentState.hours != 255 && currentState.minutes != 255)
+    {
+        updatePartialRegion(CLOCK_REGION, [=]()
+                            { drawClock(currentState.hours, currentState.minutes); });
+        previousState.hours = currentState.hours;
+        previousState.minutes = currentState.minutes;
+    }
+}
+
+void setCo2Value(uint16_t co2)
+{
+    currentState.co2 = co2;
+}
+
+void setTemperatureValue(uint16_t temperature)
+{
+    currentState.temperature = temperature;
+}
+
+void setHumidityValue(uint16_t humidity)
+{
+    currentState.humidity = humidity;
+}
+
+void setTimeValue(uint8_t hours, uint8_t minutes)
+{
+    currentState.hours = hours;
+    currentState.minutes = minutes;
+}
+
+void showRegionBorders(bool show)
+{
+    showBorders = show;
 }
