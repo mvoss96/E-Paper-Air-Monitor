@@ -144,7 +144,6 @@ namespace
         display.firstPage();
         do
         {
-            clearRegion(region);
             drawFunction();
             if (showBorders)
             {

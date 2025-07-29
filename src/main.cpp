@@ -34,7 +34,7 @@ void loop() {
   // Simulate time advancing
   minutes++;
   if (minutes >= 60) minutes = 0;
-  setTimeValue(12, minutes);
+  //setTimeValue(12, minutes);
   updateDisplay();  // Update display with new values
 
   delay(5000);
