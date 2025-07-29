@@ -22,6 +22,7 @@ namespace
     constexpr uint16_t DISPLAY_WIDTH = GxEPD2_154_D67::WIDTH_VISIBLE;
     constexpr uint16_t DISPLAY_HEIGHT = GxEPD2_154_D67::HEIGHT;
     constexpr uint16_t DISPLAY_MARGIN = 2;
+    constexpr int16_t CO2_Y = (DISPLAY_HEIGHT / 2) + (35 / 2);
 
     void drawBackground()
     {
@@ -32,16 +33,6 @@ namespace
         // Draw the two horizontal lines
         display.drawLine(DISPLAY_MARGIN, firstLineY, DISPLAY_WIDTH - DISPLAY_MARGIN, firstLineY, GxEPD_BLACK);
         display.drawLine(DISPLAY_MARGIN, secondLineY, DISPLAY_WIDTH - DISPLAY_MARGIN, secondLineY, GxEPD_BLACK);
-
-        // Draw ppm text
-        display.setFont(&FreeMonoBold9pt7b);
-        const char* ppmStr = "ppm";
-        int16_t ppx, ppy;
-        uint16_t ppw, pph;
-        display.getTextBounds(ppmStr, 0, 0, &ppx, &ppy, &ppw, &pph);
-        
-        display.setCursor(DISPLAY_WIDTH - 10 - ppw - ppx, DISPLAY_HEIGHT / 2 + pph + 25);
-        display.print(ppmStr);
     }
 
     void drawHumidity(uint16_t humidity)
@@ -86,28 +77,40 @@ namespace
         char co2Str[8];
         snprintf(co2Str, sizeof(co2Str), "%u", co2);
 
-        // Get bounds and center position
+        // Get bounds and calculate position for CO2 value
         int16_t tbx, tby;
         uint16_t tbw, tbh;
         display.getTextBounds(co2Str, 0, 0, &tbx, &tby, &tbw, &tbh);
-        
-        display.setCursor(DISPLAY_WIDTH - 10 - tbw - tbx, (DISPLAY_HEIGHT / 2) + (tbh / 2));
+
+        const int16_t co2X = DISPLAY_WIDTH - 10 - tbw - tbx;
+
+        display.setCursor(co2X, CO2_Y);
         display.print(co2Str);
+
+        // Draw ppm label at fixed offset below CO2 value
+        display.setFont(&FreeMonoBold9pt7b);
+        const char *ppmStr = "ppm";
+        display.getTextBounds(ppmStr, 0, 0, &tbx, &tby, &tbw, &tbh);
+
+        // Reuse co2X calculation but adjust for ppm text width, fixed Y offset of 25
+        display.setCursor(DISPLAY_WIDTH - 10 - tbw - tbx, CO2_Y + 25);
+        display.print(ppmStr);
     }
 
-    void drawClock()
+    void drawClock(uint8_t hours, uint8_t minutes)
     {
         display.setFont(&FreeMonoBold12pt7b);
         display.setTextColor(GxEPD_BLACK);
-        
-        // Example time - in real implementation you would get this from RTC
-        const char* timeStr = "12:45";
-        
+
+        // Format time string
+        char timeStr[6];
+        sprintf(timeStr, "%02d:%02d", hours, minutes);
+
         // Get text bounds for centering
         int16_t tbx, tby;
         uint16_t tbw, tbh;
         display.getTextBounds(timeStr, 0, 0, &tbx, &tby, &tbw, &tbh);
-        
+
         // Center horizontally and position with top margin
         display.setCursor((DISPLAY_WIDTH - tbw) / 2 - tbx, DISPLAY_MARGIN + tbh);
         display.print(timeStr);
@@ -138,7 +141,7 @@ void updateDisplay()
         drawBackground();
         drawHumidity(52);
         drawTemperature(222);
-        drawCo2(800);
-        drawClock();
+        drawClock(12, 45);
+        drawCo2(800); // Now includes ppm label
     } while (display.nextPage());
 }
