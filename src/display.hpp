@@ -12,8 +12,11 @@ void setTemperatureValue(uint16_t temperature);
 void setHumidityValue(uint16_t humidity);
 void setTimeValue(uint8_t hours, uint8_t minutes);
 
-// Debug function to show region borders
-void showRegionBorders(bool show);
+// Enable or disable region borders for debugging
+void enableRegionBorders(bool show);
+
+// Enable or disable clock display
+void enableClock(bool show);
 
 // Function to properly shutdown display before deep sleep
 void shutdownDisplay();

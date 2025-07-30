@@ -20,7 +20,9 @@ void setup()
   esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
 
   // Debug-Rahmen einschalten
-  // showRegionBorders(true);
+  // enableRegionBorders(true);
+
+  enableClock(false);
 
   switch (wakeup_reason)
   {

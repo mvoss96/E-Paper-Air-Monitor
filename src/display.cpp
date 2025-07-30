@@ -126,6 +126,9 @@ namespace
     // Debug flag for showing region borders
     bool showBorders = false;
 
+    // Flag for showing clock
+    bool showClock = true;
+
     void drawBackground()
     {
         // Calculate positions for the two horizontal lines using constexpr positions
@@ -318,7 +321,7 @@ void updateDisplay()
         previousState.humidity = currentState.humidity;
     }
 
-    if ((currentState.hours != previousState.hours || currentState.minutes != previousState.minutes) &&
+    if (showClock && (currentState.hours != previousState.hours || currentState.minutes != previousState.minutes) &&
         currentState.hours != 255 && currentState.minutes != 255)
     {
         updatePartialRegion(CLOCK_REGION, [=]()
@@ -349,9 +352,14 @@ void setTimeValue(const uint8_t hours, const uint8_t minutes)
     currentState.minutes = minutes;
 }
 
-void showRegionBorders(const bool show)
+void enableRegionBorders(const bool show)
 {
     showBorders = show;
+}
+
+void enableClock(const bool show)
+{
+    showClock = show;
 }
 
 void shutdownDisplay()
