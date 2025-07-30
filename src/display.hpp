@@ -1,6 +1,14 @@
 #pragma once
 #include <cstdint>
 
+// Pin definitions
+#define PIN_SCLK 4
+#define PIN_MOSI 3
+#define PIN_CS 5
+#define PIN_DC 6
+#define PIN_RST 7
+#define PIN_BUSY 8
+
 void setupDisplay(bool isReboot = false);
 
 // Main update function - only updates changed values
@@ -16,4 +24,3 @@ void setTimeValue(uint8_t hours, uint8_t minutes);
 void enableRegionBorders(bool show);
 // Enable or disable clock display
 void enableClock(bool show);
-

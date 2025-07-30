@@ -1,3 +1,8 @@
+#include "display.hpp"
+
+#include <algorithm>
+#include <utility>
+#include <SPI.h>
 #include <GxEPD2_BW.h>
 #include <FreeMonoBold36pt7b.h>
 #include <FreeMonoBold30pt7b.h>
@@ -5,17 +10,6 @@
 #include <Fonts/FreeMonoBold18pt7b.h>
 #include <Fonts/FreeMonoBold12pt7b.h>
 #include <Fonts/FreeMonoBold9pt7b.h>
-#include <SPI.h>
-#include <algorithm>
-#include <utility>
-
-// Pin definitions
-#define PIN_SCLK 4
-#define PIN_MOSI 3
-#define PIN_CS 5
-#define PIN_DC 6
-#define PIN_RST 7
-#define PIN_BUSY 8
 
 namespace
 {
@@ -343,7 +337,6 @@ void updateDisplay()
 
     // Put display to sleep to save power
     display.hibernate();
-    display.end();
 }
 
 void setCo2Value(const uint16_t co2)

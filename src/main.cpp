@@ -1,8 +1,9 @@
 #include "display.hpp"
+
+#include <driver/rtc_io.h>
 #include <Arduino.h>
 
 #define DEEP_SLEEP_DURATION_US 10 * 1000000 // Deep sleep duration in microseconds (5 seconds = 5,000,000 microseconds)
-#define DEBUG_LED_PIN 15                    // Debug LED pin
 
 // RTC memory to store persistent data across deep sleep
 RTC_DATA_ATTR uint16_t co2Value = 800;
@@ -12,19 +13,10 @@ void setup()
 {
   Serial.begin(115200);
 
-  // Initialize debug LED and turn it on immediately
-  // pinMode(DEBUG_LED_PIN, OUTPUT);
-  // digitalWrite(DEBUG_LED_PIN, HIGH); // Turn LED on to indicate ESP is awake
-
-  // Print wake up reason
-  esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
-
-  // Debug-Rahmen einschalten
   // enableRegionBorders(true);
-
   enableClock(false);
 
-  switch (wakeup_reason)
+  switch (esp_sleep_get_wakeup_cause())
   {
   case ESP_SLEEP_WAKEUP_TIMER:
     setupDisplay(true);
@@ -49,10 +41,15 @@ void setup()
   setHumidityValue(45);
   setTimeValue(12, currentMinutes);
   updateDisplay(); // Update the display
+  Serial.flush();  // Make sure all serial output is sent
 
-  // digitalWrite(DEBUG_LED_PIN, LOW); // Turn off debug LED before going to sleep
+  rtc_gpio_init((gpio_num_t)PIN_RST);                                     // Initialize the RTC GPIO port
+  rtc_gpio_set_direction((gpio_num_t)PIN_RST, RTC_GPIO_MODE_OUTPUT_ONLY); // Set the port to output only mode
+  rtc_gpio_hold_dis((gpio_num_t)PIN_RST);                                 // Disable hold before setting the level
+  rtc_gpio_set_level((gpio_num_t)PIN_RST, HIGH);                          // Set high/low
+  rtc_gpio_hold_en((gpio_num_t)PIN_RST);                                  // Enable hold for the RTC GPIO port
+
   esp_sleep_enable_timer_wakeup(DEEP_SLEEP_DURATION_US); // Configure timer wake up
-  Serial.flush();                                        // Make sure all serial output is sent
   esp_deep_sleep_start();                                // Enter deep sleep
 }
 
