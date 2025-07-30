@@ -29,11 +29,11 @@ namespace
     constexpr uint16_t CO2_Y = DISPLAY_CENTER_Y + 17;
     constexpr uint16_t CLOCK_Y = DISPLAY_MARGIN + 18;                     // Clock baseline Y position
     constexpr uint16_t BOTTOM_Y = DISPLAY_HEIGHT - (DISPLAY_MARGIN + 17); // Bottom elements baseline Y
-    constexpr auto FONT_CO2 = &FreeMonoBold36pt7b; // Font for CO2 value
-    constexpr auto FONT_PPM_LABEL = &FreeMonoBold9pt7b; // Font for "ppm" label
-    constexpr auto FONT_CLOCK = &FreeMonoBold12pt7b; // Font for clock
-    constexpr auto FONT_HUMIDITY = &FreeMonoBold12pt7b; // Font for humidity
-    constexpr auto FONT_TEMPERATURE = &FreeMonoBold12pt7b; // Font
+    constexpr auto FONT_CO2 = &FreeMonoBold36pt7b;                        // Font for CO2 value
+    constexpr auto FONT_PPM_LABEL = &FreeMonoBold9pt7b;                   // Font for "ppm" label
+    constexpr auto FONT_CLOCK = &FreeMonoBold12pt7b;                      // Font for clock
+    constexpr auto FONT_HUMIDITY = &FreeMonoBold12pt7b;                   // Font for humidity
+    constexpr auto FONT_TEMPERATURE = &FreeMonoBold12pt7b;                // Font
 
     struct DisplayRegion
     {
@@ -181,7 +181,7 @@ namespace
         RIGHT
     };
 
-    void drawTextInRegion(const DisplayRegion &region, const GFXfont *font, const char *text, TextAlignment alignment)
+    void drawTextInRegion(const DisplayRegion &region, const GFXfont *font, const char *text, const TextAlignment alignment)
     {
         display.setFont(font);
         display.setTextColor(GxEPD_BLACK);
@@ -214,28 +214,28 @@ namespace
         display.print(text);
     }
 
-    void drawHumidity(uint16_t humidity)
+    void drawHumidity(const uint16_t humidity)
     {
         char humidityStr[5];
         sprintf(humidityStr, "%u%%", humidity);
         drawTextInRegion(HUMIDITY_REGION, FONT_HUMIDITY, humidityStr, TextAlignment::LEFT);
     }
 
-    void drawTemperature(uint16_t temperature)
+    void drawTemperature(const uint16_t temperature)
     {
         char tempStr[10];
         sprintf(tempStr, "%d.%dC", temperature / 10, temperature % 10);
         drawTextInRegion(TEMPERATURE_REGION, FONT_TEMPERATURE, tempStr, TextAlignment::RIGHT);
     }
 
-    void drawClock(uint8_t hours, uint8_t minutes)
+    void drawClock(const uint8_t hours, const uint8_t minutes)
     {
         char timeStr[6];
         sprintf(timeStr, "%02d:%02d", hours, minutes);
         drawTextInRegion(CLOCK_REGION, FONT_CLOCK, timeStr, TextAlignment::CENTER);
     }
 
-    void drawCo2(uint16_t co2)
+    void drawCo2(const uint16_t co2)
     {
         // Draw CO2 value
         char co2Str[8];
@@ -323,28 +323,28 @@ void updateDisplay()
     }
 }
 
-void setCo2Value(uint16_t co2)
+void setCo2Value(const uint16_t co2)
 {
     currentState.co2 = co2;
 }
 
-void setTemperatureValue(uint16_t temperature)
+void setTemperatureValue(const uint16_t temperature)
 {
     currentState.temperature = temperature;
 }
 
-void setHumidityValue(uint16_t humidity)
+void setHumidityValue(const uint16_t humidity)
 {
     currentState.humidity = humidity;
 }
 
-void setTimeValue(uint8_t hours, uint8_t minutes)
+void setTimeValue(const uint8_t hours, const uint8_t minutes)
 {
     currentState.hours = hours;
     currentState.minutes = minutes;
 }
 
-void showRegionBorders(bool show)
+void showRegionBorders(const bool show)
 {
     showBorders = show;
 }
