@@ -29,6 +29,11 @@ namespace
     constexpr uint16_t CO2_Y = DISPLAY_CENTER_Y + 17;
     constexpr uint16_t CLOCK_Y = DISPLAY_MARGIN + 18;                     // Clock baseline Y position
     constexpr uint16_t BOTTOM_Y = DISPLAY_HEIGHT - (DISPLAY_MARGIN + 17); // Bottom elements baseline Y
+    constexpr auto FONT_CO2 = &FreeMonoBold36pt7b; // Font for CO2 value
+    constexpr auto FONT_PPM_LABEL = &FreeMonoBold9pt7b; // Font for "ppm" label
+    constexpr auto FONT_CLOCK = &FreeMonoBold12pt7b; // Font for clock
+    constexpr auto FONT_HUMIDITY = &FreeMonoBold12pt7b; // Font for humidity
+    constexpr auto FONT_TEMPERATURE = &FreeMonoBold12pt7b; // Font
 
     struct DisplayRegion
     {
@@ -54,7 +59,7 @@ namespace
     const DisplayRegion CLOCK_REGION = []
     {
         // Get bounds for "88:88" (widest possible time string)
-        auto [w, h] = getTextBounds(&FreeMonoBold12pt7b, "88:88");
+        auto [w, h] = getTextBounds(FONT_CLOCK, "88:88");
         constexpr uint16_t pad = 4; // Padding around the text
         return DisplayRegion{
             static_cast<uint16_t>(DISPLAY_CENTER_X - (w + pad) / 2), // Center horizontally
@@ -68,16 +73,16 @@ namespace
     const DisplayRegion CO2_REGION = []
     {
         // Get bounds for CO2 value and "ppm" label
-        auto v = getTextBounds(&FreeMonoBold30pt7b, "9999"); // Max 4-digit CO2 value
-        auto p = getTextBounds(&FreeMonoBold9pt7b, "ppm");
+        auto v = getTextBounds(FONT_CO2, "9999"); // Max 4-digit CO2 value
+        auto p = getTextBounds(FONT_PPM_LABEL, "ppm");
         constexpr uint16_t pad = 10, vspace = 25;        // Padding and vertical space between value and label
         uint16_t w = std::max(v.width, p.width) + pad;   // Width: max of value or label + padding
         uint16_t h = v.height + p.height + vspace + pad; // Height: value + label + spacing + padding
         return DisplayRegion{
-            static_cast<uint16_t>(DISPLAY_WIDTH - w),  // Right-aligned
+            static_cast<uint16_t>(DISPLAY_WIDTH - w),   // Right-aligned
             static_cast<uint16_t>(CO2_Y - h / 2 - 15u), // Vertically centered on CO2_Y
-            w,                                         // Width with padding
-            h                                          // Height with padding
+            w,                                          // Width with padding
+            h                                           // Height with padding
         };
     }();
 
@@ -85,7 +90,7 @@ namespace
     const DisplayRegion HUMIDITY_REGION = []
     {
         // Get bounds for "100%" (widest possible humidity string)
-        auto [w, h] = getTextBounds(&FreeMonoBold12pt7b, "100%");
+        auto [w, h] = getTextBounds(FONT_HUMIDITY, "100%");
         constexpr uint16_t pad = 2; // Padding around the text
         return DisplayRegion{
             DISPLAY_MARGIN,                 // Left margin
@@ -99,7 +104,7 @@ namespace
     const DisplayRegion TEMPERATURE_REGION = []
     {
         // Get bounds for "99.9C" (widest possible temperature string)
-        auto [w, h] = getTextBounds(&FreeMonoBold12pt7b, "99.9C");
+        auto [w, h] = getTextBounds(FONT_TEMPERATURE, "99.9C");
         constexpr uint16_t pad = 2; // Padding around the text
         return DisplayRegion{
             static_cast<uint16_t>(DISPLAY_WIDTH - DISPLAY_MARGIN - w - pad), // Right-aligned
@@ -213,21 +218,21 @@ namespace
     {
         char humidityStr[5];
         sprintf(humidityStr, "%u%%", humidity);
-        drawTextInRegion(HUMIDITY_REGION, &FreeMonoBold12pt7b, humidityStr, TextAlignment::LEFT);
+        drawTextInRegion(HUMIDITY_REGION, FONT_HUMIDITY, humidityStr, TextAlignment::LEFT);
     }
 
     void drawTemperature(uint16_t temperature)
     {
         char tempStr[10];
         sprintf(tempStr, "%d.%dC", temperature / 10, temperature % 10);
-        drawTextInRegion(TEMPERATURE_REGION, &FreeMonoBold12pt7b, tempStr, TextAlignment::RIGHT);
+        drawTextInRegion(TEMPERATURE_REGION, FONT_TEMPERATURE, tempStr, TextAlignment::RIGHT);
     }
 
     void drawClock(uint8_t hours, uint8_t minutes)
     {
         char timeStr[6];
         sprintf(timeStr, "%02d:%02d", hours, minutes);
-        drawTextInRegion(CLOCK_REGION, &FreeMonoBold12pt7b, timeStr, TextAlignment::CENTER);
+        drawTextInRegion(CLOCK_REGION, FONT_CLOCK, timeStr, TextAlignment::CENTER);
     }
 
     void drawCo2(uint16_t co2)
@@ -237,7 +242,7 @@ namespace
         snprintf(co2Str, sizeof(co2Str), "%u", co2);
 
         // Calculate position for CO2 value within the region
-        display.setFont(&FreeMonoBold30pt7b);
+        display.setFont(FONT_CO2);
         int16_t tbx, tby;
         uint16_t tbw, tbh;
         display.getTextBounds(co2Str, 0, 0, &tbx, &tby, &tbw, &tbh);
@@ -252,7 +257,7 @@ namespace
 
         // Draw ppm label below CO2 value
         const char *ppmStr = "ppm";
-        display.setFont(&FreeMonoBold9pt7b);
+        display.setFont(FONT_PPM_LABEL);
         display.getTextBounds(ppmStr, 0, 0, &tbx, &tby, &tbw, &tbh);
 
         // Position ppm label in lower part of the region (right-aligned)
@@ -267,7 +272,7 @@ namespace
 void setupDisplay()
 {
     SPI.begin(PIN_SCLK, -1, PIN_MOSI, PIN_CS);
-    display.init();
+    display.init(115200, true, 2, false);
     display.setRotation(0);
 
     // Clear screen at start

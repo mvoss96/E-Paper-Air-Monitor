@@ -14,8 +14,8 @@ void setup() {
   //showRegionBorders(true);
   
   // Set initial values
-  setCo2Value(800);
-  setTemperatureValue(220);  // 22.0°C
+  setCo2Value(1234);
+  setTemperatureValue(234);
   setHumidityValue(45);
   setTimeValue(12, 30);
 
