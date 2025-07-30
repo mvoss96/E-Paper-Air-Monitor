@@ -13,6 +13,11 @@ void setup()
 {
   Serial.begin(115200);
 
+  // Release the RST pin hold from deep sleep so the display can use it
+  rtc_gpio_init((gpio_num_t)PIN_RST);                                     // Initialize the RTC GPIO port
+  rtc_gpio_set_direction((gpio_num_t)PIN_RST, RTC_GPIO_MODE_OUTPUT_ONLY); // Set the port to output only mode
+  rtc_gpio_hold_dis((gpio_num_t)PIN_RST);                                 // Disable hold before setting the level
+
   // enableRegionBorders(true);
   enableClock(false);
 
@@ -43,12 +48,8 @@ void setup()
   updateDisplay(); // Update the display
   Serial.flush();  // Make sure all serial output is sent
 
-  rtc_gpio_init((gpio_num_t)PIN_RST);                                     // Initialize the RTC GPIO port
-  rtc_gpio_set_direction((gpio_num_t)PIN_RST, RTC_GPIO_MODE_OUTPUT_ONLY); // Set the port to output only mode
-  rtc_gpio_hold_dis((gpio_num_t)PIN_RST);                                 // Disable hold before setting the level
-  rtc_gpio_set_level((gpio_num_t)PIN_RST, HIGH);                          // Set high/low
-  rtc_gpio_hold_en((gpio_num_t)PIN_RST);                                  // Enable hold for the RTC GPIO port
-
+  rtc_gpio_set_level((gpio_num_t)PIN_RST, HIGH);         // Set HIGH
+  rtc_gpio_hold_en((gpio_num_t)PIN_RST);                 // Enable hold for the RTC GPIO port
   esp_sleep_enable_timer_wakeup(DEEP_SLEEP_DURATION_US); // Configure timer wake up
   esp_deep_sleep_start();                                // Enter deep sleep
 }
