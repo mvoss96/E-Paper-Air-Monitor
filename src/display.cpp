@@ -264,33 +264,33 @@ namespace
         display.setCursor(ppmX, ppmY);
         display.print(ppmStr);
     }
+
+    void setupDisplay(bool isReboot)
+    {
+        SPI.begin(PIN_SCLK, -1, PIN_MOSI, PIN_CS);
+        display.init(115200, !isReboot, 2, false);
+        display.setRotation(0);
+
+        // Only do full screen clear and background draw on first boot
+        // On reboot after deep sleep, the display content is preserved
+        if (!isReboot)
+        {
+            // Clear screen at start (only on first boot)
+            display.setFullWindow();
+            display.firstPage();
+            do
+            {
+                display.fillScreen(GxEPD_WHITE);
+                if (showBorders)
+                {
+                    drawRegionBorders(); // Draw debug borders only if enabled
+                }
+            } while (display.nextPage());
+        }
+    }
 };
 
-void setupDisplay(bool isReboot)
-{
-    SPI.begin(PIN_SCLK, -1, PIN_MOSI, PIN_CS);
-    display.init(115200, !isReboot, 2, false);
-    display.setRotation(0);
-
-    // Only do full screen clear and background draw on first boot
-    // On reboot after deep sleep, the display content is preserved
-    if (!isReboot)
-    {
-        // Clear screen at start (only on first boot)
-        display.setFullWindow();
-        display.firstPage();
-        do
-        {
-            display.fillScreen(GxEPD_WHITE);
-            if (showBorders)
-            {
-                drawRegionBorders(); // Draw debug borders only if enabled
-            }
-        } while (display.nextPage());
-    }
-}
-
-void updateDisplay()
+void updateDisplay(bool isReboot)
 {
     // Check for changes
     bool co2Changed = currentState.co2 != previousState.co2 && currentState.co2 > 0;
@@ -302,6 +302,7 @@ void updateDisplay()
     // If there are any changes, do a single partial update of the entire display
     if (co2Changed || tempChanged || humidityChanged || clockChanged)
     {
+        setupDisplay(isReboot);
         display.setPartialWindow(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
         display.firstPage();
         do

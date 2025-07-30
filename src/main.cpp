@@ -19,17 +19,7 @@ void setup()
   rtc_gpio_hold_dis((gpio_num_t)PIN_RST);                                 // Disable hold before setting the level
 
   // enableRegionBorders(true);
-  enableClock(false);
-
-  switch (esp_sleep_get_wakeup_cause())
-  {
-  case ESP_SLEEP_WAKEUP_TIMER:
-    setupDisplay(true);
-    break;
-  default:
-    setupDisplay(false);
-    break;
-  }
+  //enableClock(false);
 
   // Simulate changing CO2 value
   co2Value += 10;
@@ -45,9 +35,9 @@ void setup()
   setTemperatureValue(234);
   setHumidityValue(45);
   setTimeValue(12, currentMinutes);
-  updateDisplay(); // Update the display
-  Serial.flush();  // Make sure all serial output is sent
+  updateDisplay(esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER);
 
+  Serial.flush();                                        // Make sure all serial output is sent
   rtc_gpio_set_level((gpio_num_t)PIN_RST, HIGH);         // Set HIGH
   rtc_gpio_hold_en((gpio_num_t)PIN_RST);                 // Enable hold for the RTC GPIO port
   esp_sleep_enable_timer_wakeup(DEEP_SLEEP_DURATION_US); // Configure timer wake up
