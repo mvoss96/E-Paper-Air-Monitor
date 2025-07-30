@@ -269,24 +269,29 @@ namespace
     }
 };
 
-void setupDisplay()
+void setupDisplay(bool isReboot)
 {
     SPI.begin(PIN_SCLK, -1, PIN_MOSI, PIN_CS);
-    display.init(115200, true, 2, false);
+    display.init(115200, !isReboot, 2, false);
     display.setRotation(0);
 
-    // Clear screen at start
-    display.setFullWindow();
-    display.firstPage();
-    do
+    // Only do full screen clear and background draw on first boot
+    // On reboot after deep sleep, the display content is preserved
+    if (!isReboot)
     {
-        display.fillScreen(GxEPD_WHITE);
-        drawBackground();
-        if (showBorders)
+        // Clear screen at start (only on first boot)
+        display.setFullWindow();
+        display.firstPage();
+        do
         {
-            drawRegionBorders(); // Draw debug borders only if enabled
-        }
-    } while (display.nextPage());
+            display.fillScreen(GxEPD_WHITE);
+            drawBackground();
+            if (showBorders)
+            {
+                drawRegionBorders(); // Draw debug borders only if enabled
+            }
+        } while (display.nextPage());
+    }
 }
 
 void updateDisplay()
@@ -347,4 +352,10 @@ void setTimeValue(const uint8_t hours, const uint8_t minutes)
 void showRegionBorders(const bool show)
 {
     showBorders = show;
+}
+
+void shutdownDisplay()
+{
+    // Put display to sleep to save power
+    display.hibernate();
 }

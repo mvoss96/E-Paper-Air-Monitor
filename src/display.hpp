@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 
-void setupDisplay();
+void setupDisplay(bool isReboot = false);
 
 // Main update function - only updates changed values
 void updateDisplay();
@@ -14,3 +14,6 @@ void setTimeValue(uint8_t hours, uint8_t minutes);
 
 // Debug function to show region borders
 void showRegionBorders(bool show);
+
+// Function to properly shutdown display before deep sleep
+void shutdownDisplay();
