@@ -288,7 +288,6 @@ void setupDisplay(bool isReboot)
         do
         {
             display.fillScreen(GxEPD_WHITE);
-            drawBackground();
             if (showBorders)
             {
                 drawRegionBorders(); // Draw debug borders only if enabled
@@ -299,36 +298,52 @@ void setupDisplay(bool isReboot)
 
 void updateDisplay()
 {
-    // Check for changes and update only changed regions
-    if (currentState.co2 != previousState.co2 && currentState.co2 > 0)
+    // Check for changes
+    bool co2Changed = currentState.co2 != previousState.co2 && currentState.co2 > 0;
+    bool tempChanged = currentState.temperature != previousState.temperature && currentState.temperature > 0;
+    bool humidityChanged = currentState.humidity != previousState.humidity && currentState.humidity > 0;
+    bool clockChanged = showClock && (currentState.hours != previousState.hours || currentState.minutes != previousState.minutes) &&
+                        currentState.hours != 255 && currentState.minutes != 255;
+
+    // If there are any changes, do a single partial update of the entire display
+    if (co2Changed || tempChanged || humidityChanged || clockChanged)
     {
-        updatePartialRegion(CO2_REGION, [=]()
-                            { drawCo2(currentState.co2); });
-        previousState.co2 = currentState.co2;
+        display.setPartialWindow(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+        display.firstPage();
+        do
+        {
+            drawBackground();
+
+            // Clear and draw changed regions
+            if (co2Changed)
+            {
+                clearRegion(CO2_REGION);
+                drawCo2(currentState.co2);
+            }
+            if (tempChanged)
+            {
+                clearRegion(TEMPERATURE_REGION);
+                drawTemperature(currentState.temperature);
+            }
+            if (humidityChanged)
+            {
+                clearRegion(HUMIDITY_REGION);
+                drawHumidity(currentState.humidity);
+            }
+            if (clockChanged)
+            {
+                clearRegion(CLOCK_REGION);
+                drawClock(currentState.hours, currentState.minutes);
+            }
+        } while (display.nextPage());
+
+        // Update previous state after successful display update
+        previousState = currentState;
     }
 
-    if (currentState.temperature != previousState.temperature && currentState.temperature > 0)
-    {
-        updatePartialRegion(TEMPERATURE_REGION, [=]()
-                            { drawTemperature(currentState.temperature); });
-        previousState.temperature = currentState.temperature;
-    }
-
-    if (currentState.humidity != previousState.humidity && currentState.humidity > 0)
-    {
-        updatePartialRegion(HUMIDITY_REGION, [=]()
-                            { drawHumidity(currentState.humidity); });
-        previousState.humidity = currentState.humidity;
-    }
-
-    if (showClock && (currentState.hours != previousState.hours || currentState.minutes != previousState.minutes) &&
-        currentState.hours != 255 && currentState.minutes != 255)
-    {
-        updatePartialRegion(CLOCK_REGION, [=]()
-                            { drawClock(currentState.hours, currentState.minutes); });
-        previousState.hours = currentState.hours;
-        previousState.minutes = currentState.minutes;
-    }
+    // Put display to sleep to save power
+    display.hibernate();
+    display.end();
 }
 
 void setCo2Value(const uint16_t co2)
@@ -360,10 +375,4 @@ void enableRegionBorders(const bool show)
 void enableClock(const bool show)
 {
     showClock = show;
-}
-
-void shutdownDisplay()
-{
-    // Put display to sleep to save power
-    display.hibernate();
 }

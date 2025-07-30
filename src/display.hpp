@@ -14,9 +14,6 @@ void setTimeValue(uint8_t hours, uint8_t minutes);
 
 // Enable or disable region borders for debugging
 void enableRegionBorders(bool show);
-
 // Enable or disable clock display
 void enableClock(bool show);
 
-// Function to properly shutdown display before deep sleep
-void shutdownDisplay();
