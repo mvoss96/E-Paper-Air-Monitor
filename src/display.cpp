@@ -10,6 +10,8 @@
 #include <Fonts/FreeMonoBold18pt7b.h>
 #include <Fonts/FreeMonoBold12pt7b.h>
 #include <Fonts/FreeMonoBold9pt7b.h>
+#include <esp_sleep.h>
+#include <driver/gpio.h>
 
 namespace
 {
@@ -27,7 +29,10 @@ namespace
     constexpr auto FONT_PPM_LABEL = &FreeMonoBold9pt7b;                   // Font for "ppm" label
     constexpr auto FONT_CLOCK = &FreeMonoBold12pt7b;                      // Font for clock
     constexpr auto FONT_HUMIDITY = &FreeMonoBold12pt7b;                   // Font for humidity
-    constexpr auto FONT_TEMPERATURE = &FreeMonoBold12pt7b;                // Font
+    constexpr auto FONT_TEMPERATURE = &FreeMonoBold12pt7b;                // Font for temperature
+
+    bool sleep_active = false;
+    int busy_count = 0;
 
     struct DisplayRegion
     {
@@ -265,10 +270,50 @@ namespace
         display.print(ppmStr);
     }
 
+    // busyCallback function called during waiting for BUSY to end
+    void busyCallback(const void *p)
+    {
+        digitalWrite(17, HIGH);
+        // if (getCpuFrequencyMhz() != MIN_CPU_FREQ)
+        // {
+        //     setCpuFrequencyMhz(MIN_CPU_FREQ); // Reduce CPU frequency to save power during busy wait
+        // }
+        if (!sleep_active && busy_count > 10)
+        {
+            sleep_active = true;
+
+            // gpio_wakeup_enable(static_cast<gpio_num_t>(PIN_BUSY), GPIO_INTR_LOW_LEVEL);
+            // esp_sleep_enable_gpio_wakeup();
+            // esp_sleep_enable_timer_wakeup(100 * 1000);
+            // digitalWrite(17, HIGH);
+
+            // Enter light sleep mode
+            // esp_light_sleep_start();
+
+            // digitalWrite(17, LOW);
+
+            // Disable GPIO wakeup after waking up
+            // gpio_wakeup_disable(static_cast<gpio_num_t>(PIN_BUSY));
+        }
+        busy_count++;
+    }
+
+    void waitBusyFunction()
+    {
+        digitalWrite(17, HIGH);
+        do
+        {
+            esp_sleep_enable_timer_wakeup(3000); // 3ms timer wakeup
+            esp_light_sleep_start();
+        } while (digitalRead(PIN_BUSY) == HIGH); // Wait for display to finish updating
+        digitalWrite(17, LOW);
+    }
+
     void setupDisplay(bool isReboot)
     {
         SPI.begin(PIN_SCLK, -1, PIN_MOSI, PIN_CS);
-        display.init(115200, !isReboot, 2, false);
+        display.init(0, !isReboot, 2, false);
+        display.epd2.setWaitBusyFunction(waitBusyFunction);
         display.setRotation(0);
 
         // Only do full screen clear and background draw on first boot
@@ -277,60 +322,60 @@ namespace
         {
             // Clear screen at start (only on first boot)
             display.setFullWindow();
-            display.firstPage();
-            do
+            display.fillScreen(GxEPD_WHITE);
+            if (showBorders)
             {
-                display.fillScreen(GxEPD_WHITE);
-                if (showBorders)
-                {
-                    drawRegionBorders(); // Draw debug borders only if enabled
-                }
-            } while (display.nextPage());
+                drawRegionBorders(); // Draw debug borders only if enabled
+            }
+            display.display();
         }
     }
 };
 
 void updateDisplay(bool isReboot)
 {
-    // Check for changes
+    if (!isReboot)
+    {
+        // On first boot, we need to initialize the display
+        setupDisplay(false);
+    }
+
+    // Check if any values have changed since the last update
     bool co2Changed = currentState.co2 != previousState.co2 && currentState.co2 > 0;
     bool tempChanged = currentState.temperature != previousState.temperature && currentState.temperature > 0;
     bool humidityChanged = currentState.humidity != previousState.humidity && currentState.humidity > 0;
     bool clockChanged = showClock && (currentState.hours != previousState.hours || currentState.minutes != previousState.minutes) &&
                         currentState.hours != 255 && currentState.minutes != 255;
 
-    // If there are any changes, do a single partial update of the entire display
-    if (co2Changed || tempChanged || humidityChanged || clockChanged)
+    if (!isReboot || co2Changed || tempChanged || humidityChanged || clockChanged)
     {
-        setupDisplay(isReboot);
-        display.setPartialWindow(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
-        display.firstPage();
-        do
-        {
-            drawBackground();
+        setupDisplay(true);
+        display.setFullWindow();
+        display.fillScreen(GxEPD_WHITE);
+        drawBackground();
 
-            // Clear and draw changed regions
-            if (co2Changed)
-            {
-                clearRegion(CO2_REGION);
-                drawCo2(currentState.co2);
-            }
-            if (tempChanged)
-            {
-                clearRegion(TEMPERATURE_REGION);
-                drawTemperature(currentState.temperature);
-            }
-            if (humidityChanged)
-            {
-                clearRegion(HUMIDITY_REGION);
-                drawHumidity(currentState.humidity);
-            }
-            if (clockChanged)
-            {
-                clearRegion(CLOCK_REGION);
-                drawClock(currentState.hours, currentState.minutes);
-            }
-        } while (display.nextPage());
+        // Clear and draw changed regions
+        if (co2Changed)
+        {
+            clearRegion(CO2_REGION);
+            drawCo2(currentState.co2);
+        }
+        if (tempChanged)
+        {
+            clearRegion(TEMPERATURE_REGION);
+            drawTemperature(currentState.temperature);
+        }
+        if (humidityChanged)
+        {
+            clearRegion(HUMIDITY_REGION);
+            drawHumidity(currentState.humidity);
+        }
+        if (clockChanged)
+        {
+            clearRegion(CLOCK_REGION);
+            drawClock(currentState.hours, currentState.minutes);
+        }
+        display.display(true);
 
         // Update previous state after successful display update
         previousState = currentState;

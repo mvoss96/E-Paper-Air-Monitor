@@ -3,8 +3,6 @@
 #include <driver/rtc_io.h>
 #include <Arduino.h>
 
-#define DEEP_SLEEP_DURATION_US 10 * 1000000 // Deep sleep duration in microseconds (5 seconds = 5,000,000 microseconds)
-
 // RTC memory to store persistent data across deep sleep
 RTC_DATA_ATTR uint16_t co2Value = 800;
 RTC_DATA_ATTR uint8_t currentMinutes = 30;
@@ -12,6 +10,8 @@ RTC_DATA_ATTR uint8_t currentMinutes = 30;
 void setup()
 {
   Serial.begin(115200);
+  pinMode(17, OUTPUT);
+  digitalWrite(17, LOW);
 
   // Release the RST pin hold from deep sleep so the display can use it
   rtc_gpio_init((gpio_num_t)PIN_RST);                                     // Initialize the RTC GPIO port
@@ -19,7 +19,7 @@ void setup()
   rtc_gpio_hold_dis((gpio_num_t)PIN_RST);                                 // Disable hold before setting the level
 
   // enableRegionBorders(true);
-  //enableClock(false);
+  // enableClock(false);
 
   // Simulate changing CO2 value
   co2Value += 10;
@@ -37,11 +37,12 @@ void setup()
   setTimeValue(12, currentMinutes);
   updateDisplay(esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER);
 
-  Serial.flush();                                        // Make sure all serial output is sent
-  rtc_gpio_set_level((gpio_num_t)PIN_RST, HIGH);         // Set HIGH
-  rtc_gpio_hold_en((gpio_num_t)PIN_RST);                 // Enable hold for the RTC GPIO port
-  esp_sleep_enable_timer_wakeup(DEEP_SLEEP_DURATION_US); // Configure timer wake up
-  esp_deep_sleep_start();                                // Enter deep sleep
+  Serial.flush(); // Make sure all serial output is sent
+
+  rtc_gpio_set_level((gpio_num_t)PIN_RST, HIGH);                // Set HIGH
+  rtc_gpio_hold_en((gpio_num_t)PIN_RST);                        // Enable hold for the RTC GPIO port
+  esp_sleep_enable_timer_wakeup(DEEP_SLEEP_DURATION * 1000000); // Configure timer wake up
+  esp_deep_sleep_start();                                       // Enter deep sleep
 }
 
 void loop()
