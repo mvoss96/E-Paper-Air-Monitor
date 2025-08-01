@@ -31,9 +31,13 @@ void setup()
   if (currentMinutes >= 60)
     currentMinutes = 0;
 
+  // Random values for temperature and humidity
+  uint16_t temperature = 321; // Example temperature value
+  uint16_t humidity = 8;    // Example humidity value
+
   setCo2Value(co2Value);
-  setTemperatureValue(234);
-  setHumidityValue(45);
+  setTemperatureValue(temperature);
+  setHumidityValue(humidity);
   setTimeValue(12, currentMinutes);
   updateDisplay(esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER);
 

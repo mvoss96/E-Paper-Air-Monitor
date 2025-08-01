@@ -57,17 +57,17 @@ namespace
         return {static_cast<uint16_t>(tbw), static_cast<uint16_t>(tbh)};
     }
 
-    // Region for the clock (centered at the top)
+    // Region for the clock (top left)
     const DisplayRegion CLOCK_REGION = []
     {
         // Get bounds for "88:88" (widest possible time string)
         auto [w, h] = getTextBounds(FONT_CLOCK, "88:88");
         constexpr uint16_t pad = 4; // Padding around the text
         return DisplayRegion{
-            static_cast<uint16_t>(DISPLAY_CENTER_X - (w + pad) / 2), // Center horizontally
-            0,                                                       // Top of the display
-            static_cast<uint16_t>(w + pad),                          // Width with padding
-            static_cast<uint16_t>(h + pad)                           // Height with padding
+            DISPLAY_MARGIN,                     // Left margin
+            DISPLAY_MARGIN,                     // Top margin
+            static_cast<uint16_t>(w + pad),     // Width with padding
+            static_cast<uint16_t>(h + pad)      // Height with padding
         };
     }();
 
@@ -313,14 +313,15 @@ namespace
 
     void drawClock(const uint8_t hours, const uint8_t minutes)
     {
+        // Draw clock in the top left region
         char timeStr[6];
         sprintf(timeStr, "%02d:%02d", hours, minutes);
-        drawTextInRegion(CLOCK_REGION, FONT_CLOCK, timeStr, TextAlignment::CENTER);
+        drawTextInRegion(CLOCK_REGION, FONT_CLOCK, timeStr, TextAlignment::LEFT);
     }
 
     void drawCo2(const uint16_t co2)
     {
-        // Draw CO2 label at the top left of the region
+        // Draw CO2 label centered at the top of CO2_REGION
         const char *labelStr = "CO2";
         display.setFont(FONT_LABEL);
         display.setTextColor(GxEPD_BLACK);
@@ -329,7 +330,7 @@ namespace
         uint16_t tbw, tbh;
         display.getTextBounds(labelStr, 0, 0, &tbx, &tby, &tbw, &tbh);
 
-        uint16_t labelX = CO2_REGION.x - tbx;
+        uint16_t labelX = CO2_REGION.x + (CO2_REGION.w - tbw) / 2 - tbx;
         uint16_t labelY = CO2_REGION.y + tbh + DISPLAY_MARGIN;
 
         display.setCursor(labelX, labelY);
