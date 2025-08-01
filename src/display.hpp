@@ -9,7 +9,6 @@
 #define PIN_RST 7
 #define PIN_BUSY 20
 
-void enableRegionBorders(bool show);
 void enableClock(bool show);
 void updateDisplay(bool isReboot);
 

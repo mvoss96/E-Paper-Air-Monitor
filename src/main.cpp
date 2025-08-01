@@ -18,7 +18,7 @@ void setup()
   rtc_gpio_set_direction((gpio_num_t)PIN_RST, RTC_GPIO_MODE_OUTPUT_ONLY); // Set the port to output only mode
   rtc_gpio_hold_dis((gpio_num_t)PIN_RST);                                 // Disable hold before setting the level
 
-  enableRegionBorders(true);
+  //enableRegionBorders(true);
   // enableClock(false);
 
   // Simulate changing CO2 value
