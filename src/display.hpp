@@ -7,7 +7,7 @@
 #define PIN_CS 5
 #define PIN_DC 6
 #define PIN_RST 7
-#define PIN_BUSY 8
+#define PIN_BUSY 20
 
 void enableRegionBorders(bool show);
 void enableClock(bool show);

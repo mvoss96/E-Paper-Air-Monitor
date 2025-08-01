@@ -16,23 +16,30 @@
 namespace
 {
     // Display object for 1.54" 200x200 (GDEH0154D67)
-    GxEPD2_BW<GxEPD2_154_D67, GxEPD2_154_D67::HEIGHT> display(GxEPD2_154_D67(PIN_CS, PIN_DC, PIN_RST, PIN_BUSY));
-    constexpr uint16_t DISPLAY_WIDTH = GxEPD2_154_D67::WIDTH_VISIBLE;
-    constexpr uint16_t DISPLAY_HEIGHT = GxEPD2_154_D67::HEIGHT;
+    //GxEPD2_BW<GxEPD2_154_D67, GxEPD2_154_D67::HEIGHT> display(GxEPD2_154_D67(PIN_CS, PIN_DC, PIN_RST, PIN_BUSY));
+    //constexpr uint16_t DISPLAY_WIDTH = GxEPD2_154_D67::WIDTH_VISIBLE;
+    //constexpr uint16_t DISPLAY_HEIGHT = GxEPD2_154_D67::HEIGHT;
+
+    // Display object for 4.2" 400x300 (GDEH042Z15)
+    GxEPD2_BW<GxEPD2_420_GDEY042T81, GxEPD2_420_GDEY042T81::HEIGHT> display(GxEPD2_420_GDEY042T81(PIN_CS, PIN_DC, PIN_RST, PIN_BUSY));
+    constexpr uint16_t DISPLAY_WIDTH = GxEPD2_420_GDEY042T81::WIDTH_VISIBLE;
+    constexpr uint16_t DISPLAY_HEIGHT = GxEPD2_420_GDEY042T81::HEIGHT;
+
     constexpr uint16_t DISPLAY_MARGIN = 2;
     constexpr uint16_t DISPLAY_CENTER_X = DISPLAY_WIDTH / 2;
     constexpr uint16_t DISPLAY_CENTER_Y = DISPLAY_HEIGHT / 2;
     constexpr uint16_t CO2_Y = DISPLAY_CENTER_Y + 17;
     constexpr uint16_t CLOCK_Y = DISPLAY_MARGIN + 18;                     // Clock baseline Y position
-    constexpr uint16_t BOTTOM_Y = DISPLAY_HEIGHT - (DISPLAY_MARGIN + 17); // Bottom elements baseline Y
+    constexpr uint16_t BOTTOM_Y = DISPLAY_HEIGHT - (DISPLAY_MARGIN + 34); // Bottom elements baseline Y
     constexpr auto FONT_CO2 = &FreeMonoBold36pt7b;                        // Font for CO2 value
     constexpr auto FONT_PPM_LABEL = &FreeMonoBold9pt7b;                   // Font for "ppm" label
     constexpr auto FONT_CLOCK = &FreeMonoBold12pt7b;                      // Font for clock
-    constexpr auto FONT_HUMIDITY = &FreeMonoBold12pt7b;                   // Font for humidity
-    constexpr auto FONT_TEMPERATURE = &FreeMonoBold12pt7b;                // Font for temperature
+    constexpr auto FONT_HUMIDITY = &FreeMonoBold24pt7b;                   // Font for humidity
+    constexpr auto FONT_TEMPERATURE = &FreeMonoBold24pt7b;                // Font for temperature
 
     bool sleep_active = false;
     int busy_count = 0;
+    bool isSetup = false;
 
     struct DisplayRegion
     {
@@ -132,7 +139,7 @@ namespace
     {
         // Calculate positions for the two horizontal lines using constexpr positions
         constexpr uint16_t firstLineY = 2 * DISPLAY_MARGIN + 18;
-        constexpr uint16_t secondLineY = DISPLAY_HEIGHT - 2 * DISPLAY_MARGIN - 18;
+        constexpr uint16_t secondLineY = DISPLAY_HEIGHT - 2 * DISPLAY_MARGIN - 36;
 
         // Draw the two horizontal lines
         display.drawLine(DISPLAY_MARGIN, firstLineY, DISPLAY_WIDTH - DISPLAY_MARGIN, firstLineY, GxEPD_BLACK);
@@ -301,11 +308,16 @@ namespace
     void waitBusyFunction()
     {
         digitalWrite(17, HIGH);
+        setCpuFrequencyMhz(MIN_CPU_FREQ); // Reduce CPU frequency to save power during busy wait
+
         do
         {
-            esp_sleep_enable_timer_wakeup(3000); // 3ms timer wakeup
-            esp_light_sleep_start();
-        } while (digitalRead(PIN_BUSY) == HIGH); // Wait for display to finish updating
+            // esp_sleep_enable_timer_wakeup(isSetup ? 2000 : 5000);
+            // esp_light_sleep_start();
+            yield();
+        } while (gpio_get_level((gpio_num_t)PIN_BUSY)); // Wait for display to finish updating
+
+        setCpuFrequencyMhz(MAX_CPU_FREQ); // Restore CPU frequency after busy wait
         digitalWrite(17, LOW);
     }
 
@@ -320,6 +332,7 @@ namespace
         // On reboot after deep sleep, the display content is preserved
         if (!isReboot)
         {
+            isSetup = true;
             // Clear screen at start (only on first boot)
             display.setFullWindow();
             display.fillScreen(GxEPD_WHITE);
@@ -328,6 +341,7 @@ namespace
                 drawRegionBorders(); // Draw debug borders only if enabled
             }
             display.display();
+            isSetup = false; // Reset setup flag after initial clear
         }
     }
 };
@@ -383,6 +397,7 @@ void updateDisplay(bool isReboot)
 
     // Put display to sleep to save power
     display.hibernate();
+    display.end();
 }
 
 void setCo2Value(const uint16_t co2)
