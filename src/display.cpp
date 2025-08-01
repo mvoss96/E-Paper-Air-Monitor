@@ -1,13 +1,10 @@
 #include "display.hpp"
 
-#include <algorithm>
-#include <utility>
 #include <SPI.h>
 #include <GxEPD2_BW.h>
 #include <FreeMonoBold36pt7b.h>
 #include <FreeMonoBold30pt7b.h>
 #include <Fonts/FreeMonoBold24pt7b.h>
-#include <Fonts/FreeMonoBold18pt7b.h>
 #include <Fonts/FreeMonoBold12pt7b.h>
 #include <Fonts/FreeMonoBold9pt7b.h>
 #include <esp_sleep.h>
@@ -68,100 +65,69 @@ namespace
         display.drawLine(DISPLAY_CENTER_X, DISPLAY_CENTER_Y, DISPLAY_CENTER_X, DISPLAY_HEIGHT - DISPLAY_MARGIN, GxEPD_BLACK);
     }
 
-    void drawHumidity(const uint16_t humidity)
+    // Helper function to draw centered text at given position
+    void drawCenteredText(const char* text, const GFXfont* font, uint16_t centerX, uint16_t y)
     {
-        // Draw Humidity label
-        const char *labelStr = "Humidity";
-        display.setFont(FONT_LABEL);
+        display.setFont(font);
         display.setTextColor(GxEPD_BLACK);
-
+        
         int16_t tbx, tby;
         uint16_t tbw, tbh;
-        display.getTextBounds(labelStr, 0, 0, &tbx, &tby, &tbw, &tbh);
+        display.getTextBounds(text, 0, 0, &tbx, &tby, &tbw, &tbh);
+        
+        uint16_t x = centerX - (tbw / 2) - tbx;
+        display.setCursor(x, y);
+        display.print(text);
+    }
 
-        uint16_t labelX = HUMIDITY_CENTER_X - (tbw / 2) - tbx;
-        uint16_t labelY = HUMIDITY_LABEL_Y;
-
-        display.setCursor(labelX, labelY);
-        display.print(labelStr);
-
-        // Draw humidity value
-        char humidityStr[5];
-        sprintf(humidityStr, "%u", humidity);
-
-        display.setFont(FONT_HUMIDITY);
-        display.getTextBounds(humidityStr, 0, 0, &tbx, &tby, &tbw, &tbh);
-
-        uint16_t valueX = HUMIDITY_CENTER_X - (tbw / 2) - tbx;
-        uint16_t valueY = HUMIDITY_VALUE_Y;
-
-        display.setCursor(valueX, valueY);
-        display.print(humidityStr);
-
-        // Draw % unit to the right of the value
-        const char *unitStr = "%";
+    // Helper function to draw text with unit
+    void drawValueWithUnit(const char* valueText, const char* unitText, const GFXfont* valueFont, uint16_t centerX, uint16_t y)
+    {
+        display.setFont(valueFont);
+        display.setTextColor(GxEPD_BLACK);
+        
+        int16_t tbx, tby;
+        uint16_t tbw, tbh;
+        display.getTextBounds(valueText, 0, 0, &tbx, &tby, &tbw, &tbh);
+        
+        uint16_t valueX = centerX - (tbw / 2) - tbx;
+        display.setCursor(valueX, y);
+        display.print(valueText);
+        
+        // Draw unit to the right of the value
         display.setFont(FONT_UNIT);
         int16_t tbx2, tby2;
         uint16_t tbw2, tbh2;
-        display.getTextBounds(unitStr, 0, 0, &tbx2, &tby2, &tbw2, &tbh2);
-
+        display.getTextBounds(unitText, 0, 0, &tbx2, &tby2, &tbw2, &tbh2);
+        
         uint16_t unitX = valueX + tbw + UNIT_SPACING - tbx2;
-        uint16_t unitY = valueY;
+        display.setCursor(unitX, y);
+        display.print(unitText);
+    }
 
-        display.setCursor(unitX, unitY);
-        display.print(unitStr);
+    void drawHumidity(const uint16_t humidity)
+    {
+        drawCenteredText("Humidity", FONT_LABEL, HUMIDITY_CENTER_X, HUMIDITY_LABEL_Y);
+        
+        char humidityStr[5];
+        sprintf(humidityStr, "%u", humidity);
+        drawValueWithUnit(humidityStr, "%", FONT_HUMIDITY, HUMIDITY_CENTER_X, HUMIDITY_VALUE_Y);
     }
 
     void drawTemperature(const uint16_t temperature)
     {
-        // Draw Temperature label
-        const char *labelStr = "Temperature";
-        display.setFont(FONT_LABEL);
-        display.setTextColor(GxEPD_BLACK);
-
-        int16_t tbx, tby;
-        uint16_t tbw, tbh;
-        display.getTextBounds(labelStr, 0, 0, &tbx, &tby, &tbw, &tbh);
-
-        uint16_t labelX = TEMPERATURE_CENTER_X - (tbw / 2) - tbx;
-        uint16_t labelY = TEMPERATURE_LABEL_Y;
-
-        display.setCursor(labelX, labelY);
-        display.print(labelStr);
-
-        // Draw temperature value
+        drawCenteredText("Temperature", FONT_LABEL, TEMPERATURE_CENTER_X, TEMPERATURE_LABEL_Y);
+        
         char tempStr[10];
         sprintf(tempStr, "%d.%d", temperature / 10, temperature % 10);
-
-        display.setFont(FONT_TEMPERATURE);
-        display.getTextBounds(tempStr, 0, 0, &tbx, &tby, &tbw, &tbh);
-
-        uint16_t valueX = TEMPERATURE_CENTER_X - (tbw / 2) - tbx;
-        uint16_t valueY = TEMPERATURE_VALUE_Y;
-
-        display.setCursor(valueX, valueY);
-        display.print(tempStr);
-
-        // Draw C unit to the right of the value
-        const char *unitStr = "C";
-        display.setFont(FONT_UNIT);
-        int16_t tbx2, tby2;
-        uint16_t tbw2, tbh2;
-        display.getTextBounds(unitStr, 0, 0, &tbx2, &tby2, &tbw2, &tbh2);
-
-        uint16_t unitX = valueX + tbw + UNIT_SPACING - tbx2;
-        uint16_t unitY = valueY;
-
-        display.setCursor(unitX, unitY);
-        display.print(unitStr);
+        drawValueWithUnit(tempStr, "C", FONT_TEMPERATURE, TEMPERATURE_CENTER_X, TEMPERATURE_VALUE_Y);
     }
 
     void drawClock(const uint8_t hours, const uint8_t minutes)
     {
-        // Draw clock in the top left
         char timeStr[6];
         sprintf(timeStr, "%02d:%02d", hours, minutes);
-
+        
         display.setFont(FONT_CLOCK);
         display.setTextColor(GxEPD_BLACK);
         display.setCursor(CLOCK_X, CLOCK_Y);
@@ -170,47 +136,11 @@ namespace
 
     void drawCo2(const uint16_t co2)
     {
-        // Draw CO2 label centered at the top
-        const char *labelStr = "CO2";
-        display.setFont(FONT_LABEL);
-        display.setTextColor(GxEPD_BLACK);
-
-        int16_t tbx, tby;
-        uint16_t tbw, tbh;
-        display.getTextBounds(labelStr, 0, 0, &tbx, &tby, &tbw, &tbh);
-
-        uint16_t labelX = DISPLAY_CENTER_X - (tbw / 2) - tbx;
-        uint16_t labelY = CO2_LABEL_Y;
-
-        display.setCursor(labelX, labelY);
-        display.print(labelStr);
-
-        // Draw CO2 value
+        drawCenteredText("CO2", FONT_LABEL, DISPLAY_CENTER_X, CO2_LABEL_Y);
+        
         char co2Str[8];
         snprintf(co2Str, sizeof(co2Str), "%u", co2);
-
-        display.setFont(FONT_CO2);
-        display.getTextBounds(co2Str, 0, 0, &tbx, &tby, &tbw, &tbh);
-
-        uint16_t co2X = DISPLAY_CENTER_X - (tbw / 2) - tbx;
-        uint16_t co2Y = CO2_VALUE_Y;
-
-        display.setTextColor(GxEPD_BLACK);
-        display.setCursor(co2X, co2Y);
-        display.print(co2Str);
-
-        // Draw ppm unit to the right of the value
-        const char *unitStr = "ppm";
-        display.setFont(FONT_UNIT);
-        int16_t tbx2, tby2;
-        uint16_t tbw2, tbh2;
-        display.getTextBounds(unitStr, 0, 0, &tbx2, &tby2, &tbw2, &tbh2);
-
-        uint16_t unitX = co2X + tbw + UNIT_SPACING - tbx2;
-        uint16_t unitY = co2Y;
-
-        display.setCursor(unitX, unitY);
-        display.print(unitStr);
+        drawValueWithUnit(co2Str, "ppm", FONT_CO2, DISPLAY_CENTER_X, CO2_VALUE_Y);
     }
 
     void waitBusyFunction()
@@ -220,8 +150,8 @@ namespace
 
         do
         {
-            // esp_sleep_enable_timer_wakeup(isSetup ? 2000 : 5000);
-            // esp_light_sleep_start();
+            esp_sleep_enable_timer_wakeup(5000);
+            esp_light_sleep_start();
             yield();
         } while (gpio_get_level((gpio_num_t)PIN_BUSY)); // Wait for display to finish updating
 
@@ -252,48 +182,45 @@ void updateDisplay(bool isReboot)
 {
     if (!isReboot)
     {
-        // On first boot, we need to initialize the display
         setupDisplay(false);
     }
 
     // Check if any values have changed since the last update
-    bool co2Changed = currentState.co2 != previousState.co2 && currentState.co2 > 0;
-    bool tempChanged = currentState.temperature != previousState.temperature && currentState.temperature > 0;
-    bool humidityChanged = currentState.humidity != previousState.humidity && currentState.humidity > 0;
-    bool clockChanged = showClock && (currentState.hours != previousState.hours || currentState.minutes != previousState.minutes) &&
-                        currentState.hours != 255 && currentState.minutes != 255;
+    bool hasChanges = (currentState.co2 != previousState.co2 && currentState.co2 > 0) ||
+                      (currentState.temperature != previousState.temperature && currentState.temperature > 0) ||
+                      (currentState.humidity != previousState.humidity && currentState.humidity > 0) ||
+                      (showClock && (currentState.hours != previousState.hours || currentState.minutes != previousState.minutes) &&
+                       currentState.hours != 255 && currentState.minutes != 255);
 
-    if (!isReboot || co2Changed || tempChanged || humidityChanged || clockChanged)
+    if (!isReboot || hasChanges)
     {
         setupDisplay(true);
         display.setFullWindow();
         display.fillScreen(GxEPD_WHITE);
         drawBackground();
 
-        // Draw all elements (no need to clear individual regions since we cleared the whole screen)
-        if (co2Changed)
+        // Draw all elements if they have valid values
+        if (currentState.co2 > 0)
         {
             drawCo2(currentState.co2);
         }
-        if (tempChanged)
+        if (currentState.temperature > 0)
         {
             drawTemperature(currentState.temperature);
         }
-        if (humidityChanged)
+        if (currentState.humidity > 0)
         {
             drawHumidity(currentState.humidity);
         }
-        if (clockChanged)
+        if (showClock && currentState.hours != 255 && currentState.minutes != 255)
         {
             drawClock(currentState.hours, currentState.minutes);
         }
+        
         display.display(true);
-
-        // Update previous state after successful display update
         previousState = currentState;
     }
 
-    // Put display to sleep to save power
     display.hibernate();
     display.end();
 }
