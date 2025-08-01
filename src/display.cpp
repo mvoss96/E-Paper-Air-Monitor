@@ -15,27 +15,23 @@
 
 namespace
 {
-    // Display object for 1.54" 200x200 (GDEH0154D67)
-    //GxEPD2_BW<GxEPD2_154_D67, GxEPD2_154_D67::HEIGHT> display(GxEPD2_154_D67(PIN_CS, PIN_DC, PIN_RST, PIN_BUSY));
-    //constexpr uint16_t DISPLAY_WIDTH = GxEPD2_154_D67::WIDTH_VISIBLE;
-    //constexpr uint16_t DISPLAY_HEIGHT = GxEPD2_154_D67::HEIGHT;
-
     // Display object for 4.2" 400x300 (GDEH042Z15)
     GxEPD2_BW<GxEPD2_420_GDEY042T81, GxEPD2_420_GDEY042T81::HEIGHT> display(GxEPD2_420_GDEY042T81(PIN_CS, PIN_DC, PIN_RST, PIN_BUSY));
-    constexpr uint16_t DISPLAY_WIDTH = GxEPD2_420_GDEY042T81::WIDTH_VISIBLE;
-    constexpr uint16_t DISPLAY_HEIGHT = GxEPD2_420_GDEY042T81::HEIGHT;
-
-    constexpr uint16_t DISPLAY_MARGIN = 2;
-    constexpr uint16_t DISPLAY_CENTER_X = DISPLAY_WIDTH / 2;
-    constexpr uint16_t DISPLAY_CENTER_Y = DISPLAY_HEIGHT / 2;
-    constexpr uint16_t CO2_Y = DISPLAY_CENTER_Y + 17;
-    constexpr uint16_t CLOCK_Y = DISPLAY_MARGIN + 18;                     // Clock baseline Y position
-    constexpr uint16_t BOTTOM_Y = DISPLAY_HEIGHT - (DISPLAY_MARGIN + 34); // Bottom elements baseline Y
-    constexpr auto FONT_CO2 = &FreeMonoBold36pt7b;                        // Font for CO2 value
-    constexpr auto FONT_PPM_LABEL = &FreeMonoBold9pt7b;                   // Font for "ppm" label
-    constexpr auto FONT_CLOCK = &FreeMonoBold12pt7b;                      // Font for clock
-    constexpr auto FONT_HUMIDITY = &FreeMonoBold24pt7b;                   // Font for humidity
-    constexpr auto FONT_TEMPERATURE = &FreeMonoBold24pt7b;                // Font for temperature
+    constexpr uint16_t DISPLAY_WIDTH = GxEPD2_420_GDEY042T81::WIDTH_VISIBLE; // Width of the display
+    constexpr uint16_t DISPLAY_HEIGHT = GxEPD2_420_GDEY042T81::HEIGHT;       // Height of the display
+    constexpr uint16_t DISPLAY_MARGIN = 2;                                   // Margin around the display
+    constexpr uint16_t UNIT_SPACING = 12;                                    // Spacing between value and unit
+    constexpr uint16_t DISPLAY_CENTER_X = DISPLAY_WIDTH / 2;                 // Center X position
+    constexpr uint16_t DISPLAY_CENTER_Y = DISPLAY_HEIGHT / 2;                // Center Y position
+    constexpr uint16_t CO2_Y = DISPLAY_CENTER_Y + 17;                        // CO2 value baseline Y position
+    constexpr uint16_t CLOCK_Y = DISPLAY_MARGIN + 18;                        // Clock baseline Y position
+    constexpr uint16_t BOTTOM_Y = DISPLAY_HEIGHT - (DISPLAY_MARGIN + 34);    // Bottom elements baseline Y
+    constexpr auto FONT_CO2 = &FreeMonoBold30pt7b;                           // Font for CO2 value
+    constexpr auto FONT_LABEL = &FreeMonoBold12pt7b;                         // Font for labels
+    constexpr auto FONT_UNIT = &FreeMonoBold9pt7b;                           // Font for units (%, C, ppm)
+    constexpr auto FONT_CLOCK = &FreeMonoBold12pt7b;                         // Font for clock
+    constexpr auto FONT_HUMIDITY = &FreeMonoBold24pt7b;                      // Font for humidity
+    constexpr auto FONT_TEMPERATURE = &FreeMonoBold24pt7b;                   // Font for temperature
 
     bool sleep_active = false;
     int busy_count = 0;
@@ -75,48 +71,54 @@ namespace
         };
     }();
 
-    // Region for CO2 value and "ppm" label (right side, vertically centered)
+    // Region for CO2 value and "ppm" label (entire top half)
     const DisplayRegion CO2_REGION = []
     {
         // Get bounds for CO2 value and "ppm" label
         auto v = getTextBounds(FONT_CO2, "9999"); // Max 4-digit CO2 value
-        auto p = getTextBounds(FONT_PPM_LABEL, "ppm");
+        auto p = getTextBounds(FONT_LABEL, "ppm");
         constexpr uint16_t pad = 10, vspace = 25;        // Padding and vertical space between value and label
-        uint16_t w = std::max(v.width, p.width) + pad;   // Width: max of value or label + padding
-        uint16_t h = v.height + p.height + vspace + pad; // Height: value + label + spacing + padding
+        uint16_t w = DISPLAY_WIDTH - 2 * DISPLAY_MARGIN; // Full width minus margins
+        uint16_t h = DISPLAY_CENTER_Y - DISPLAY_MARGIN;  // Top half height
         return DisplayRegion{
-            static_cast<uint16_t>(DISPLAY_WIDTH - w),   // Right-aligned
-            static_cast<uint16_t>(CO2_Y - h / 2 - 15u), // Vertically centered on CO2_Y
-            w,                                          // Width with padding
-            h                                           // Height with padding
+            DISPLAY_MARGIN, // Left margin
+            DISPLAY_MARGIN, // Top margin
+            w,              // Full width
+            h               // Top half height
         };
     }();
 
-    // Region for humidity (bottom left)
+    // Region for humidity (bottom left quadrant, centered)
     const DisplayRegion HUMIDITY_REGION = []
     {
-        // Get bounds for "100%" (widest possible humidity string)
-        auto [w, h] = getTextBounds(FONT_HUMIDITY, "100%");
-        constexpr uint16_t pad = 2; // Padding around the text
+        // Get bounds for "99%" (widest possible humidity string)
+        auto [w, h] = getTextBounds(FONT_HUMIDITY, "99%");
+        constexpr uint16_t pad = 4; // Padding around the text
+        // Bottom left quadrant: x from DISPLAY_MARGIN to DISPLAY_CENTER_X, y from DISPLAY_CENTER_Y to DISPLAY_HEIGHT-DISPLAY_MARGIN
+        uint16_t quadrant_width = DISPLAY_CENTER_X - DISPLAY_MARGIN;
+        uint16_t quadrant_height = DISPLAY_HEIGHT - DISPLAY_CENTER_Y - DISPLAY_MARGIN;
         return DisplayRegion{
-            DISPLAY_MARGIN,                 // Left margin
-            BOTTOM_Y,                       // Baseline Y for bottom elements
-            static_cast<uint16_t>(w + pad), // Width with padding
-            static_cast<uint16_t>(h + pad)  // Height with padding
+            static_cast<uint16_t>(DISPLAY_MARGIN + (quadrant_width - w - pad) / 2),    // Centered horizontally in left quadrant
+            static_cast<uint16_t>(DISPLAY_CENTER_Y + (quadrant_height - h - pad) / 2), // Centered vertically in bottom quadrant
+            static_cast<uint16_t>(w + pad),                                            // Width with padding
+            static_cast<uint16_t>(h + pad)                                             // Height with padding
         };
     }();
 
-    // Region for temperature (bottom right)
+    // Region for temperature (bottom right quadrant, centered)
     const DisplayRegion TEMPERATURE_REGION = []
     {
         // Get bounds for "99.9C" (widest possible temperature string)
         auto [w, h] = getTextBounds(FONT_TEMPERATURE, "99.9C");
-        constexpr uint16_t pad = 2; // Padding around the text
+        constexpr uint16_t pad = 4; // Padding around the text
+        // Bottom right quadrant: x from DISPLAY_CENTER_X to DISPLAY_WIDTH-DISPLAY_MARGIN, y from DISPLAY_CENTER_Y to DISPLAY_HEIGHT-DISPLAY_MARGIN
+        uint16_t quadrant_width = DISPLAY_WIDTH - DISPLAY_CENTER_X - DISPLAY_MARGIN;
+        uint16_t quadrant_height = DISPLAY_HEIGHT - DISPLAY_CENTER_Y - DISPLAY_MARGIN;
         return DisplayRegion{
-            static_cast<uint16_t>(DISPLAY_WIDTH - DISPLAY_MARGIN - w - pad), // Right-aligned
-            BOTTOM_Y,                                                        // Baseline Y for bottom elements
-            static_cast<uint16_t>(w + pad),                                  // Width with padding
-            static_cast<uint16_t>(h + pad)                                   // Height with padding
+            static_cast<uint16_t>(DISPLAY_CENTER_X + (quadrant_width - w - pad) / 2),  // Centered horizontally in right quadrant
+            static_cast<uint16_t>(DISPLAY_CENTER_Y + (quadrant_height - h - pad) / 2), // Centered vertically in bottom quadrant
+            static_cast<uint16_t>(w + pad),                                            // Width with padding
+            static_cast<uint16_t>(h + pad)                                             // Height with padding
         };
     }();
 
@@ -137,13 +139,11 @@ namespace
 
     void drawBackground()
     {
-        // Calculate positions for the two horizontal lines using constexpr positions
-        constexpr uint16_t firstLineY = 2 * DISPLAY_MARGIN + 18;
-        constexpr uint16_t secondLineY = DISPLAY_HEIGHT - 2 * DISPLAY_MARGIN - 36;
+        // Draw horizontal line dividing the screen into top and bottom halves
+        display.drawLine(DISPLAY_MARGIN, DISPLAY_CENTER_Y, DISPLAY_WIDTH - DISPLAY_MARGIN, DISPLAY_CENTER_Y, GxEPD_BLACK);
 
-        // Draw the two horizontal lines
-        display.drawLine(DISPLAY_MARGIN, firstLineY, DISPLAY_WIDTH - DISPLAY_MARGIN, firstLineY, GxEPD_BLACK);
-        display.drawLine(DISPLAY_MARGIN, secondLineY, DISPLAY_WIDTH - DISPLAY_MARGIN, secondLineY, GxEPD_BLACK);
+        // Draw vertical line dividing the bottom half into left and right sections
+        display.drawLine(DISPLAY_CENTER_X, DISPLAY_CENTER_Y, DISPLAY_CENTER_X, DISPLAY_HEIGHT - DISPLAY_MARGIN, GxEPD_BLACK);
     }
 
     void clearRegion(const DisplayRegion &region)
@@ -225,16 +225,90 @@ namespace
 
     void drawHumidity(const uint16_t humidity)
     {
+        // Draw Humidity label underneath the horizontal line with margin spacing
+        const char *labelStr = "Humidity";
+        display.setFont(FONT_LABEL);
+        display.setTextColor(GxEPD_BLACK);
+
+        int16_t tbx, tby;
+        uint16_t tbw, tbh;
+        display.getTextBounds(labelStr, 0, 0, &tbx, &tby, &tbw, &tbh);
+
+        uint16_t labelX = HUMIDITY_REGION.x + (HUMIDITY_REGION.w - tbw) / 2 - tbx;
+        uint16_t labelY = DISPLAY_CENTER_Y + tbh + DISPLAY_MARGIN;
+
+        display.setCursor(labelX, labelY);
+        display.print(labelStr);
+
+        // Draw humidity value
         char humidityStr[5];
-        sprintf(humidityStr, "%u%%", humidity);
-        drawTextInRegion(HUMIDITY_REGION, FONT_HUMIDITY, humidityStr, TextAlignment::LEFT);
+        sprintf(humidityStr, "%u", humidity);
+
+        display.setFont(FONT_HUMIDITY);
+        display.getTextBounds(humidityStr, 0, 0, &tbx, &tby, &tbw, &tbh);
+
+        uint16_t valueX = HUMIDITY_REGION.x + (HUMIDITY_REGION.w - tbw) / 2 - tbx;
+        uint16_t valueY = HUMIDITY_REGION.y + (HUMIDITY_REGION.h / 2) + (tbh / 2) + 10;
+
+        display.setCursor(valueX, valueY);
+        display.print(humidityStr);
+
+        // Draw % unit to the right of the value, bottom aligned
+        const char *unitStr = "%";
+        display.setFont(FONT_UNIT);
+        int16_t tbx2, tby2;
+        uint16_t tbw2, tbh2;
+        display.getTextBounds(unitStr, 0, 0, &tbx2, &tby2, &tbw2, &tbh2);
+
+        uint16_t unitX = valueX + tbw + UNIT_SPACING - tbx2;
+        uint16_t unitY = valueY; // Bottom aligned with value
+
+        display.setCursor(unitX, unitY);
+        display.print(unitStr);
     }
 
     void drawTemperature(const uint16_t temperature)
     {
+        // Draw Temperature label underneath the horizontal line with margin spacing
+        const char *labelStr = "Temperature";
+        display.setFont(FONT_LABEL);
+        display.setTextColor(GxEPD_BLACK);
+
+        int16_t tbx, tby;
+        uint16_t tbw, tbh;
+        display.getTextBounds(labelStr, 0, 0, &tbx, &tby, &tbw, &tbh);
+
+        uint16_t labelX = TEMPERATURE_REGION.x + (TEMPERATURE_REGION.w - tbw) / 2 - tbx;
+        uint16_t labelY = DISPLAY_CENTER_Y + tbh + DISPLAY_MARGIN;
+
+        display.setCursor(labelX, labelY);
+        display.print(labelStr);
+
+        // Draw temperature value
         char tempStr[10];
-        sprintf(tempStr, "%d.%dC", temperature / 10, temperature % 10);
-        drawTextInRegion(TEMPERATURE_REGION, FONT_TEMPERATURE, tempStr, TextAlignment::RIGHT);
+        sprintf(tempStr, "%d.%d", temperature / 10, temperature % 10);
+
+        display.setFont(FONT_TEMPERATURE);
+        display.getTextBounds(tempStr, 0, 0, &tbx, &tby, &tbw, &tbh);
+
+        uint16_t valueX = TEMPERATURE_REGION.x + (TEMPERATURE_REGION.w - tbw) / 2 - tbx;
+        uint16_t valueY = TEMPERATURE_REGION.y + (TEMPERATURE_REGION.h / 2) + (tbh / 2) + 10;
+
+        display.setCursor(valueX, valueY);
+        display.print(tempStr);
+
+        // Draw C unit to the right of the value, bottom aligned
+        const char *unitStr = "C";
+        display.setFont(FONT_UNIT);
+        int16_t tbx2, tby2;
+        uint16_t tbw2, tbh2;
+        display.getTextBounds(unitStr, 0, 0, &tbx2, &tby2, &tbw2, &tbh2);
+
+        uint16_t unitX = valueX + tbw + UNIT_SPACING - tbx2;
+        uint16_t unitY = valueY; // Bottom aligned with value
+
+        display.setCursor(unitX, unitY);
+        display.print(unitStr);
     }
 
     void drawClock(const uint8_t hours, const uint8_t minutes)
@@ -246,35 +320,49 @@ namespace
 
     void drawCo2(const uint16_t co2)
     {
+        // Draw CO2 label at the top left of the region
+        const char *labelStr = "CO2";
+        display.setFont(FONT_LABEL);
+        display.setTextColor(GxEPD_BLACK);
+
+        int16_t tbx, tby;
+        uint16_t tbw, tbh;
+        display.getTextBounds(labelStr, 0, 0, &tbx, &tby, &tbw, &tbh);
+
+        uint16_t labelX = CO2_REGION.x - tbx;
+        uint16_t labelY = CO2_REGION.y + tbh + DISPLAY_MARGIN;
+
+        display.setCursor(labelX, labelY);
+        display.print(labelStr);
+
         // Draw CO2 value
         char co2Str[8];
         snprintf(co2Str, sizeof(co2Str), "%u", co2);
 
-        // Calculate position for CO2 value within the region
+        // Calculate position for CO2 value within the region (centered horizontally)
         display.setFont(FONT_CO2);
-        int16_t tbx, tby;
-        uint16_t tbw, tbh;
         display.getTextBounds(co2Str, 0, 0, &tbx, &tby, &tbw, &tbh);
 
-        // Position CO2 value in upper part of the region (right-aligned)
-        uint16_t co2X = CO2_REGION.x + CO2_REGION.w - tbw - tbx;
-        uint16_t co2Y = CO2_REGION.y + tbh + 5; // 5px from top of region
+        // Position CO2 value in middle part of the region (centered)
+        uint16_t co2X = CO2_REGION.x + (CO2_REGION.w - tbw) / 2 - tbx;
+        uint16_t co2Y = CO2_REGION.y + (CO2_REGION.h / 2) + (tbh / 2); // Vertically centered
 
         display.setTextColor(GxEPD_BLACK);
         display.setCursor(co2X, co2Y);
         display.print(co2Str);
 
-        // Draw ppm label below CO2 value
-        const char *ppmStr = "ppm";
-        display.setFont(FONT_PPM_LABEL);
-        display.getTextBounds(ppmStr, 0, 0, &tbx, &tby, &tbw, &tbh);
+        // Draw ppm unit to the right of the value, bottom aligned
+        const char *unitStr = "ppm";
+        display.setFont(FONT_UNIT);
+        int16_t tbx2, tby2;
+        uint16_t tbw2, tbh2;
+        display.getTextBounds(unitStr, 0, 0, &tbx2, &tby2, &tbw2, &tbh2);
 
-        // Position ppm label in lower part of the region (right-aligned)
-        uint16_t ppmX = CO2_REGION.x + CO2_REGION.w - tbw - tbx;
-        uint16_t ppmY = CO2_REGION.y + CO2_REGION.h - 5; // 5px from bottom of region
+        uint16_t unitX = co2X + tbw + UNIT_SPACING - tbx2;
+        uint16_t unitY = co2Y; // Bottom aligned with value
 
-        display.setCursor(ppmX, ppmY);
-        display.print(ppmStr);
+        display.setCursor(unitX, unitY);
+        display.print(unitStr);
     }
 
     // busyCallback function called during waiting for BUSY to end
