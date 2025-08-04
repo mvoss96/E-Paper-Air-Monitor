@@ -14,6 +14,7 @@ namespace
 {
     // Display object for 4.2" 400x300 (GDEH042Z15)
     GxEPD2_BW<GxEPD2_420_GDEY042T81, GxEPD2_420_GDEY042T81::HEIGHT> display(GxEPD2_420_GDEY042T81(PIN_CS, PIN_DC, PIN_RST, PIN_BUSY));
+    constexpr uint16_t DISPLAY_BUSY_SLEEP = 20;                              // Time to wait in light sleep for display to finish updating
     constexpr uint16_t DISPLAY_WIDTH = GxEPD2_420_GDEY042T81::WIDTH_VISIBLE; // Width of the display
     constexpr uint16_t DISPLAY_HEIGHT = GxEPD2_420_GDEY042T81::HEIGHT;       // Height of the display
     constexpr uint16_t DISPLAY_MARGIN = 2;                                   // Margin around the display
@@ -31,18 +32,22 @@ namespace
     constexpr uint16_t CLOCK_X = DISPLAY_MARGIN;
     constexpr uint16_t CLOCK_Y = DISPLAY_MARGIN + 18;
 
+    // Battery percentage positions (top right corner)
+    constexpr uint16_t BATTERY_PERCENT_X = DISPLAY_WIDTH - DISPLAY_MARGIN - 45;
+    constexpr uint16_t BATTERY_PERCENT_Y = DISPLAY_MARGIN + 18;
+
     // CO2 label and value positions (top half, centered)
     constexpr uint16_t CO2_LABEL_Y = DISPLAY_MARGIN + 18;
-    constexpr uint16_t CO2_VALUE_Y = 90;
+    constexpr uint16_t CO2_VALUE_Y = 100;
 
     // Humidity positions (bottom left quadrant)
     constexpr uint16_t HUMIDITY_LABEL_Y = DISPLAY_CENTER_Y + 18;
-    constexpr uint16_t HUMIDITY_VALUE_Y = DISPLAY_HEIGHT - 60;
+    constexpr uint16_t HUMIDITY_VALUE_Y = DISPLAY_HEIGHT - 50;
     constexpr uint16_t HUMIDITY_CENTER_X = DISPLAY_CENTER_X / 2;
 
     // Temperature positions (bottom right quadrant)
     constexpr uint16_t TEMPERATURE_LABEL_Y = DISPLAY_CENTER_Y + 18;
-    constexpr uint16_t TEMPERATURE_VALUE_Y = DISPLAY_HEIGHT - 60;
+    constexpr uint16_t TEMPERATURE_VALUE_Y = DISPLAY_HEIGHT - 50;
     constexpr uint16_t TEMPERATURE_CENTER_X = DISPLAY_CENTER_X + (DISPLAY_CENTER_X / 2);
 
     struct DisplayState
@@ -52,9 +57,11 @@ namespace
         uint16_t humidity = 0;
         uint8_t hours = 255;
         uint8_t minutes = 255;
+        uint8_t batteryPercent = 0; // 0-100, battery percentage
     } currentState, previousState;
 
-    bool showClock = true; // Flag for showing clock
+    bool showClock = true;    // Flag for showing clock
+    bool fullRefresh = false; // Flag for full screen refresh
 
     void drawBackground()
     {
@@ -66,40 +73,40 @@ namespace
     }
 
     // Helper function to draw centered text at given position
-    void drawCenteredText(const char* text, const GFXfont* font, uint16_t centerX, uint16_t y)
+    void drawCenteredText(const char *text, const GFXfont *font, uint16_t centerX, uint16_t y)
     {
         display.setFont(font);
         display.setTextColor(GxEPD_BLACK);
-        
+
         int16_t tbx, tby;
         uint16_t tbw, tbh;
         display.getTextBounds(text, 0, 0, &tbx, &tby, &tbw, &tbh);
-        
+
         uint16_t x = centerX - (tbw / 2) - tbx;
         display.setCursor(x, y);
         display.print(text);
     }
 
     // Helper function to draw text with unit
-    void drawValueWithUnit(const char* valueText, const char* unitText, const GFXfont* valueFont, uint16_t centerX, uint16_t y)
+    void drawValueWithUnit(const char *valueText, const char *unitText, const GFXfont *valueFont, uint16_t centerX, uint16_t y)
     {
         display.setFont(valueFont);
         display.setTextColor(GxEPD_BLACK);
-        
+
         int16_t tbx, tby;
         uint16_t tbw, tbh;
         display.getTextBounds(valueText, 0, 0, &tbx, &tby, &tbw, &tbh);
-        
+
         uint16_t valueX = centerX - (tbw / 2) - tbx;
         display.setCursor(valueX, y);
         display.print(valueText);
-        
+
         // Draw unit to the right of the value
         display.setFont(FONT_UNIT);
         int16_t tbx2, tby2;
         uint16_t tbw2, tbh2;
         display.getTextBounds(unitText, 0, 0, &tbx2, &tby2, &tbw2, &tbh2);
-        
+
         uint16_t unitX = valueX + tbw + UNIT_SPACING - tbx2;
         display.setCursor(unitX, y);
         display.print(unitText);
@@ -108,7 +115,7 @@ namespace
     void drawHumidity(const uint16_t humidity)
     {
         drawCenteredText("Humidity", FONT_LABEL, HUMIDITY_CENTER_X, HUMIDITY_LABEL_Y);
-        
+
         char humidityStr[5];
         sprintf(humidityStr, "%u", humidity);
         drawValueWithUnit(humidityStr, "%", FONT_HUMIDITY, HUMIDITY_CENTER_X, HUMIDITY_VALUE_Y);
@@ -117,7 +124,7 @@ namespace
     void drawTemperature(const uint16_t temperature)
     {
         drawCenteredText("Temperature", FONT_LABEL, TEMPERATURE_CENTER_X, TEMPERATURE_LABEL_Y);
-        
+
         char tempStr[10];
         sprintf(tempStr, "%d.%d", temperature / 10, temperature % 10);
         drawValueWithUnit(tempStr, "C", FONT_TEMPERATURE, TEMPERATURE_CENTER_X, TEMPERATURE_VALUE_Y);
@@ -127,17 +134,28 @@ namespace
     {
         char timeStr[6];
         sprintf(timeStr, "%02d:%02d", hours, minutes);
-        
+
         display.setFont(FONT_CLOCK);
         display.setTextColor(GxEPD_BLACK);
         display.setCursor(CLOCK_X, CLOCK_Y);
         display.print(timeStr);
     }
 
+    void drawBatteryPercent(const uint8_t batteryPercent)
+    {
+        char batteryStr[8];
+        sprintf(batteryStr, "%u%%", batteryPercent);
+
+        display.setFont(FONT_CLOCK);
+        display.setTextColor(GxEPD_BLACK);
+        display.setCursor(BATTERY_PERCENT_X, BATTERY_PERCENT_Y);
+        display.print(batteryStr);
+    }
+
     void drawCo2(const uint16_t co2)
     {
         drawCenteredText("CO2", FONT_LABEL, DISPLAY_CENTER_X, CO2_LABEL_Y);
-        
+
         char co2Str[8];
         snprintf(co2Str, sizeof(co2Str), "%u", co2);
         drawValueWithUnit(co2Str, "ppm", FONT_CO2, DISPLAY_CENTER_X, CO2_VALUE_Y);
@@ -150,9 +168,16 @@ namespace
 
         do
         {
-            esp_sleep_enable_timer_wakeup(5000);
-            esp_light_sleep_start();
-            yield();
+            if (fullRefresh)
+            {
+                yield();
+            }
+            else
+            {
+                esp_sleep_enable_timer_wakeup(DISPLAY_BUSY_SLEEP * 1000);
+                esp_light_sleep_start();
+            }
+
         } while (gpio_get_level((gpio_num_t)PIN_BUSY)); // Wait for display to finish updating
 
         setCpuFrequencyMhz(MAX_CPU_FREQ); // Restore CPU frequency after busy wait
@@ -170,10 +195,12 @@ namespace
         // On reboot after deep sleep, the display content is preserved
         if (!isReboot)
         {
+            fullRefresh = true; // Set flag for full screen refresh
             // Clear screen at start (only on first boot)
             display.setFullWindow();
             display.fillScreen(GxEPD_WHITE);
             display.display();
+            fullRefresh = false; // Reset flag after initial clear
         }
     }
 };
@@ -189,6 +216,7 @@ void updateDisplay(bool isReboot)
     bool hasChanges = (currentState.co2 != previousState.co2 && currentState.co2 > 0) ||
                       (currentState.temperature != previousState.temperature && currentState.temperature > 0) ||
                       (currentState.humidity != previousState.humidity && currentState.humidity > 0) ||
+                      (currentState.batteryPercent != previousState.batteryPercent) ||
                       (showClock && (currentState.hours != previousState.hours || currentState.minutes != previousState.minutes) &&
                        currentState.hours != 255 && currentState.minutes != 255);
 
@@ -216,13 +244,16 @@ void updateDisplay(bool isReboot)
         {
             drawClock(currentState.hours, currentState.minutes);
         }
-        
+
+        // Always draw battery percentage
+        drawBatteryPercent(currentState.batteryPercent);
+
         display.display(true);
         previousState = currentState;
     }
 
     display.hibernate();
-    display.end();
+    // display.end();
 }
 
 void setCo2Value(const uint16_t co2)
@@ -249,4 +280,10 @@ void setTimeValue(const uint8_t hours, const uint8_t minutes)
 void enableClock(const bool show)
 {
     showClock = show;
+}
+
+void setBatteryPercent(const uint8_t percent)
+{
+    // Clamp battery percentage to valid range (0-100)
+    currentState.batteryPercent = (percent > 100) ? 100 : percent;
 }
