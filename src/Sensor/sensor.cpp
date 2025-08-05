@@ -101,7 +101,6 @@ bool Sensor::update()
 
     if (mySensor.readMeasurement())
     {
-        mMeasurement = {};
         mMeasurement.co2 = mySensor.getCO2();
         mMeasurement.temperature = mySensor.getTemperature() * 100;
         mMeasurement.humidity = mySensor.getHumidity() * 100;

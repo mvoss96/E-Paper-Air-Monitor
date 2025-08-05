@@ -77,9 +77,12 @@ void setup()
   }
 
   Sensor::Measurement measurement = sensor.getMeasurement(); // Get the latest sensor values
-  co2Value = measurement.co2;                                // Store the CO2 value in RTC memory
-  temperature = measurement.temperature;                     // Store the temperature in RTC memory
-  humidity = measurement.humidity;                           // Store the humidity in RTC memory
+  if (co2Value > 0)
+  {
+    co2Value = measurement.co2; // Store the CO2 value in RTC memory
+  }
+  temperature = measurement.temperature; // Store the temperature in RTC memory
+  humidity = measurement.humidity;       // Store the humidity in RTC memory
   Serial.printf("CO2: %u PPM, Temperature: %.2f C, Humidity: %.2f %%\n", measurement.co2, measurement.temperature / 100.0, measurement.humidity / 100.0);
 
   enableClock(false);

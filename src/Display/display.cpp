@@ -233,19 +233,11 @@ void updateDisplay(bool partial)
         drawBackground();
 
         // Draw all elements if they have valid values
-        if (currentState.co2 > 0)
-        {
-            drawCo2(currentState.co2);
-        }
-        if (currentState.temperature > 0)
-        {
-            drawTemperature(currentState.temperature);
-        }
-        if (currentState.humidity > 0)
-        {
-            drawHumidity(currentState.humidity);
-        }
-        if (showClock && currentState.hours != 255 && currentState.minutes != 255)
+        drawCo2(currentState.co2);
+        drawTemperature(currentState.temperature);
+        drawHumidity(currentState.humidity);
+
+        if (showClock)
         {
             drawClock(currentState.hours, currentState.minutes);
         }
