@@ -10,7 +10,7 @@
 #define PIN_BUSY 20
 
 void enableClock(bool show);
-void updateDisplay(bool isReboot);
+void updateDisplay(bool partial);
 
 // Functions to set individual values
 void setCo2Value(uint16_t co2);

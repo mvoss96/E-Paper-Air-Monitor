@@ -7,6 +7,8 @@
 RTC_DATA_ATTR uint16_t co2Value = 800;
 RTC_DATA_ATTR uint8_t currentMinutes = 30;
 
+constexpr uint32_t DEEP_SLEEP_DURATION = 10; // Deep sleep duration in seconds
+
 void setup()
 {
   Serial.begin(115200);

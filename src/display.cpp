@@ -14,7 +14,8 @@ namespace
 {
     // Display object for 4.2" 400x300 (GDEH042Z15)
     GxEPD2_BW<GxEPD2_420_GDEY042T81, GxEPD2_420_GDEY042T81::HEIGHT> display(GxEPD2_420_GDEY042T81(PIN_CS, PIN_DC, PIN_RST, PIN_BUSY));
-    constexpr uint16_t DISPLAY_BUSY_SLEEP = 20;                              // Time to wait in light sleep for display to finish updating
+    constexpr uint16_t DISPLAY_BUSY_SLEEP = 3;                               // Time to wait in light sleep for display to finish updating
+    constexpr uint16_t DISPLAY_FULL_REFRESH_INTERVAL = 200;                  // Number of partial updates before full refresh
     constexpr uint16_t DISPLAY_WIDTH = GxEPD2_420_GDEY042T81::WIDTH_VISIBLE; // Width of the display
     constexpr uint16_t DISPLAY_HEIGHT = GxEPD2_420_GDEY042T81::HEIGHT;       // Height of the display
     constexpr uint16_t DISPLAY_MARGIN = 2;                                   // Margin around the display
@@ -60,8 +61,9 @@ namespace
         uint8_t batteryPercent = 0; // 0-100, battery percentage
     } currentState, previousState;
 
-    bool showClock = true;    // Flag for showing clock
-    bool fullRefresh = false; // Flag for full screen refresh
+    bool showClock = true;                            // Flag for showing clock
+    bool fullRefresh = false;                         // Flag for full screen refresh
+    RTC_DATA_ATTR uint16_t displayRefreshCounter = 0; // Counter for partial updates
 
     void drawBackground()
     {
@@ -163,7 +165,6 @@ namespace
 
     void waitBusyFunction()
     {
-        digitalWrite(17, HIGH);
         setCpuFrequencyMhz(MIN_CPU_FREQ); // Reduce CPU frequency to save power during busy wait
 
         do
@@ -181,48 +182,42 @@ namespace
         } while (gpio_get_level((gpio_num_t)PIN_BUSY)); // Wait for display to finish updating
 
         setCpuFrequencyMhz(MAX_CPU_FREQ); // Restore CPU frequency after busy wait
-        digitalWrite(17, LOW);
     }
 
-    void setupDisplay(bool isReboot)
+    void setupDisplay(bool partial)
     {
         SPI.begin(PIN_SCLK, -1, PIN_MOSI, PIN_CS);
-        display.init(0, !isReboot, 2, false);
+        display.init(0, !partial, 2, false);
         display.epd2.setWaitBusyFunction(waitBusyFunction);
         display.setRotation(0);
+    }
 
-        // Only do full screen clear on first boot
-        // On reboot after deep sleep, the display content is preserved
-        if (!isReboot)
-        {
-            fullRefresh = true; // Set flag for full screen refresh
-            // Clear screen at start (only on first boot)
-            display.setFullWindow();
-            display.fillScreen(GxEPD_WHITE);
-            display.display();
-            fullRefresh = false; // Reset flag after initial clear
-        }
+    bool getStateChanged()
+    {
+        return (currentState.co2 != previousState.co2 && currentState.co2 > 0) ||
+               (currentState.temperature != previousState.temperature && currentState.temperature > 0) ||
+               (currentState.humidity != previousState.humidity && currentState.humidity > 0) ||
+               (currentState.batteryPercent != previousState.batteryPercent) ||
+               (showClock && (currentState.hours != previousState.hours || currentState.minutes != previousState.minutes) &&
+                currentState.hours != 255 && currentState.minutes != 255);
     }
 };
 
-void updateDisplay(bool isReboot)
+void updateDisplay(bool partial)
 {
-    if (!isReboot)
+    // Force full refresh after a certain number of partial updates
+    if (displayRefreshCounter++ >= DISPLAY_FULL_REFRESH_INTERVAL)
     {
-        setupDisplay(false);
+        partial = false;
+        displayRefreshCounter = 0;
     }
 
     // Check if any values have changed since the last update
-    bool hasChanges = (currentState.co2 != previousState.co2 && currentState.co2 > 0) ||
-                      (currentState.temperature != previousState.temperature && currentState.temperature > 0) ||
-                      (currentState.humidity != previousState.humidity && currentState.humidity > 0) ||
-                      (currentState.batteryPercent != previousState.batteryPercent) ||
-                      (showClock && (currentState.hours != previousState.hours || currentState.minutes != previousState.minutes) &&
-                       currentState.hours != 255 && currentState.minutes != 255);
+    bool hasChanges = getStateChanged();
 
-    if (!isReboot || hasChanges)
+    if (!partial || hasChanges)
     {
-        setupDisplay(true);
+        setupDisplay(partial);
         display.setFullWindow();
         display.fillScreen(GxEPD_WHITE);
         drawBackground();
@@ -247,13 +242,12 @@ void updateDisplay(bool isReboot)
 
         // Always draw battery percentage
         drawBatteryPercent(currentState.batteryPercent);
-
-        display.display(true);
+        fullRefresh = !partial; // Set flag for full screen refresh
+        display.display(partial);
+        fullRefresh = false; // Reset flag after display update
         previousState = currentState;
+        display.hibernate();
     }
-
-    display.hibernate();
-    // display.end();
 }
 
 void setCo2Value(const uint16_t co2)
