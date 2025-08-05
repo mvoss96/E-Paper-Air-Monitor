@@ -22,12 +22,22 @@ namespace
     constexpr uint16_t DISPLAY_CENTER_X = DISPLAY_WIDTH / 2;                 // Center X position
     constexpr uint16_t DISPLAY_CENTER_Y = DISPLAY_HEIGHT / 2;                // Center Y position
     constexpr uint16_t UNIT_SPACING = 12;                                    // Spacing between value and unit
-    constexpr auto FONT_CO2 = &FreeMonoBold30pt7b;                           // Font for CO2 value
-    constexpr auto FONT_LABEL = &FreeMonoBold12pt7b;                         // Font for labels
-    constexpr auto FONT_UNIT = &FreeMonoBold9pt7b;                           // Font for units (%, C, ppm)
-    constexpr auto FONT_CLOCK = &FreeMonoBold12pt7b;                         // Font for clock
-    constexpr auto FONT_HUMIDITY = &FreeMonoBold24pt7b;                      // Font for humidity
-    constexpr auto FONT_TEMPERATURE = &FreeMonoBold24pt7b;                   // Font for temperature
+    constexpr const char *LABEL_HUMIDITY = "Humidity";
+    constexpr const char *LABEL_TEMPERATURE = "Temperature";
+    constexpr const char *LABEL_CO2 = "CO2";
+    constexpr const char *UNIT_PERCENT = "%";
+    constexpr const char *UNIT_CELSIUS = "C";
+    constexpr const char *UNIT_PPM = "ppm";
+    
+    // Shared string buffer to avoid repeated allocations
+    static char stringBuffer[16];
+    
+    constexpr auto FONT_CO2 = &FreeMonoBold30pt7b;         // Font for CO2 value
+    constexpr auto FONT_LABEL = &FreeMonoBold12pt7b;       // Font for labels
+    constexpr auto FONT_UNIT = &FreeMonoBold9pt7b;         // Font for units (%, C, ppm)
+    constexpr auto FONT_CLOCK = &FreeMonoBold12pt7b;       // Font for clock
+    constexpr auto FONT_HUMIDITY = &FreeMonoBold24pt7b;    // Font for humidity
+    constexpr auto FONT_TEMPERATURE = &FreeMonoBold24pt7b; // Font for temperature
 
     // Clock positions (top left corner)
     constexpr uint16_t CLOCK_X = DISPLAY_MARGIN;
@@ -116,51 +126,41 @@ namespace
 
     void drawHumidity(const uint16_t humidity)
     {
-        drawCenteredText("Humidity", FONT_LABEL, HUMIDITY_CENTER_X, HUMIDITY_LABEL_Y);
-
-        char humidityStr[5];
-        sprintf(humidityStr, "%u", humidity);
-        drawValueWithUnit(humidityStr, "%", FONT_HUMIDITY, HUMIDITY_CENTER_X, HUMIDITY_VALUE_Y);
+        drawCenteredText(LABEL_HUMIDITY, FONT_LABEL, HUMIDITY_CENTER_X, HUMIDITY_LABEL_Y);
+        snprintf(stringBuffer, sizeof(stringBuffer), "%u", humidity);
+        drawValueWithUnit(stringBuffer, UNIT_PERCENT, FONT_HUMIDITY, HUMIDITY_CENTER_X, HUMIDITY_VALUE_Y);
     }
 
     void drawTemperature(const uint16_t temperature)
     {
-        drawCenteredText("Temperature", FONT_LABEL, TEMPERATURE_CENTER_X, TEMPERATURE_LABEL_Y);
-
-        char tempStr[10];
-        sprintf(tempStr, "%d.%d", temperature / 10, temperature % 10);
-        drawValueWithUnit(tempStr, "C", FONT_TEMPERATURE, TEMPERATURE_CENTER_X, TEMPERATURE_VALUE_Y);
+        drawCenteredText(LABEL_TEMPERATURE, FONT_LABEL, TEMPERATURE_CENTER_X, TEMPERATURE_LABEL_Y);
+        snprintf(stringBuffer, sizeof(stringBuffer), "%d.%d", temperature / 10, temperature % 10);
+        drawValueWithUnit(stringBuffer, UNIT_CELSIUS, FONT_TEMPERATURE, TEMPERATURE_CENTER_X, TEMPERATURE_VALUE_Y);
     }
 
     void drawClock(const uint8_t hours, const uint8_t minutes)
     {
-        char timeStr[6];
-        sprintf(timeStr, "%02d:%02d", hours, minutes);
-
+        snprintf(stringBuffer, sizeof(stringBuffer), "%02d:%02d", hours, minutes);
         display.setFont(FONT_CLOCK);
         display.setTextColor(GxEPD_BLACK);
         display.setCursor(CLOCK_X, CLOCK_Y);
-        display.print(timeStr);
+        display.print(stringBuffer);
     }
 
     void drawBatteryPercent(const uint8_t batteryPercent)
     {
-        char batteryStr[8];
-        sprintf(batteryStr, "%u%%", batteryPercent);
-
+        snprintf(stringBuffer, sizeof(stringBuffer), "%u%%", batteryPercent);
         display.setFont(FONT_CLOCK);
         display.setTextColor(GxEPD_BLACK);
         display.setCursor(BATTERY_PERCENT_X, BATTERY_PERCENT_Y);
-        display.print(batteryStr);
+        display.print(stringBuffer);
     }
 
     void drawCo2(const uint16_t co2)
     {
-        drawCenteredText("CO2", FONT_LABEL, DISPLAY_CENTER_X, CO2_LABEL_Y);
-
-        char co2Str[8];
-        snprintf(co2Str, sizeof(co2Str), "%u", co2);
-        drawValueWithUnit(co2Str, "ppm", FONT_CO2, DISPLAY_CENTER_X, CO2_VALUE_Y);
+        drawCenteredText(LABEL_CO2, FONT_LABEL, DISPLAY_CENTER_X, CO2_LABEL_Y);
+        snprintf(stringBuffer, sizeof(stringBuffer), "%u", co2);
+        drawValueWithUnit(stringBuffer, UNIT_PPM, FONT_CO2, DISPLAY_CENTER_X, CO2_VALUE_Y);
     }
 
     void waitBusyFunction()
@@ -194,12 +194,24 @@ namespace
 
     bool getStateChanged()
     {
-        return (currentState.co2 != previousState.co2 && currentState.co2 > 0) ||
-               (currentState.temperature != previousState.temperature && currentState.temperature > 0) ||
-               (currentState.humidity != previousState.humidity && currentState.humidity > 0) ||
-               (currentState.batteryPercent != previousState.batteryPercent) ||
-               (showClock && (currentState.hours != previousState.hours || currentState.minutes != previousState.minutes) &&
-                currentState.hours != 255 && currentState.minutes != 255);
+        // Check basic sensor values (early return for efficiency)
+        if (currentState.co2 != previousState.co2 ||
+            currentState.temperature != previousState.temperature ||
+            currentState.humidity != previousState.humidity ||
+            currentState.batteryPercent != previousState.batteryPercent)
+        {
+            return true;
+        }
+
+        // Check clock only if it's enabled and has valid time
+        if (showClock &&
+            currentState.hours != 255 && currentState.minutes != 255 &&
+            (currentState.hours != previousState.hours || currentState.minutes != previousState.minutes))
+        {
+            return true;
+        }
+
+        return false;
     }
 };
 
