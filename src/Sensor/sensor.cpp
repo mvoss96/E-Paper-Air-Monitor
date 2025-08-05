@@ -5,7 +5,6 @@
 
 static SCD4x mySensor;
 static Preferences preferences;
-RTC_DATA_ATTR bool mMeasurementRequested = false; // Flag to indicate if measurement was requested
 
 static Sensor::Config getStoredConfig()
 {
@@ -39,7 +38,7 @@ bool Sensor::begin()
 
     if (mySensor.begin(false, false) == false) // Begin measurement mode and disable automatic self-calibration
     {
-        Serial.println("Sensor not detected. Please check wiring.");
+        Serial.println("Error: Sensor not detected!");
         mMeasurement.error = true;
         return false;
     }
@@ -55,12 +54,40 @@ bool Sensor::begin()
     return true;
 }
 
+bool Sensor::updateFast()
+{
+    Serial.println("Sensor RH Measurement Requested");
+    if (!mySensor.measureSingleShotRHTOnly())
+    {
+        Serial.println("Error: RH Single Shot Measurement failed!");
+        mMeasurement.error = true;
+        return false;
+    }
+
+    while (mySensor.getDataReadyStatus() == false)
+    {
+        Serial.print(".");
+        esp_sleep_enable_timer_wakeup(20 * 1000);
+        esp_light_sleep_start();
+    }
+
+    if (mySensor.readMeasurement())
+    {
+        mMeasurement.temperature = mySensor.getTemperature() * 100;
+        mMeasurement.humidity = mySensor.getHumidity() * 100;
+        return true;
+    }
+    Serial.println("No new measurement data available.");
+
+    return false;
+}
+
 bool Sensor::update()
 {
     Serial.println("Sensor Measurement Requested");
     if (!mySensor.measureSingleShot())
     {
-        Serial.println("Single Shot measurement failed!");
+        Serial.println("Error: Single Shot Measurement failed!");
         mMeasurement.error = true;
         return false;
     }
@@ -74,7 +101,6 @@ bool Sensor::update()
 
     if (mySensor.readMeasurement())
     {
-        mMeasurementRequested = false; // Reset the measurement request flag
         mMeasurement = {};
         mMeasurement.co2 = mySensor.getCO2();
         mMeasurement.temperature = mySensor.getTemperature() * 100;
@@ -98,8 +124,6 @@ Sensor::Measurement Sensor::getMeasurement() const
 
 void Sensor::startFRC()
 {
-    mySensor.stopPeriodicMeasurement();
-    delay(500);
     float correction;
     printf("Starting FRC with value: %d\n", mConfig.frcValue);
     mySensor.performForcedRecalibration(mConfig.frcValue, &correction);

@@ -125,14 +125,14 @@ namespace
     void drawHumidity(const uint16_t humidity)
     {
         drawCenteredText(LABEL_HUMIDITY, FONT_LABEL, HUMIDITY_CENTER_X, HUMIDITY_LABEL_Y);
-        snprintf(stringBuffer, sizeof(stringBuffer), "%u", humidity);
+        snprintf(stringBuffer, sizeof(stringBuffer), "%u", humidity / 100);
         drawValueWithUnit(stringBuffer, UNIT_PERCENT, FONT_HUMIDITY, HUMIDITY_CENTER_X, HUMIDITY_VALUE_Y);
     }
 
     void drawTemperature(const uint16_t temperature)
     {
         drawCenteredText(LABEL_TEMPERATURE, FONT_LABEL, TEMPERATURE_CENTER_X, TEMPERATURE_LABEL_Y);
-        snprintf(stringBuffer, sizeof(stringBuffer), "%d.%d", temperature / 10, temperature % 10);
+        snprintf(stringBuffer, sizeof(stringBuffer), "%d.%d", temperature / 100, temperature % 10);
         drawValueWithUnit(stringBuffer, UNIT_CELSIUS, FONT_TEMPERATURE, TEMPERATURE_CENTER_X, TEMPERATURE_VALUE_Y);
     }
 
