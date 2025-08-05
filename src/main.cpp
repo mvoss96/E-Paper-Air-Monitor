@@ -1,19 +1,25 @@
-#include "display.hpp"
+#include "Display/display.hpp"
+#include "Sensor/sensor.hpp"
 
 #include <driver/rtc_io.h>
 #include <Arduino.h>
 
 // RTC memory to store persistent data across deep sleep
 RTC_DATA_ATTR uint16_t co2Value = 800;
+RTC_DATA_ATTR uint16_t temperature = 2500; // Temperature in C * 100
+RTC_DATA_ATTR uint16_t humidity = 5000;    // Humidity in % *
 RTC_DATA_ATTR uint8_t currentMinutes = 30;
 
-constexpr uint32_t DEEP_SLEEP_DURATION = 10; // Deep sleep duration in seconds
+constexpr uint32_t DEEP_SLEEP_DURATION = 20; // Deep sleep duration in seconds
+
+Sensor sensor;
 
 void setup()
 {
   Serial.begin(115200);
-  pinMode(17, OUTPUT);
-  digitalWrite(17, LOW);
+  pinMode(PIN_RST, OUTPUT); // Set RST pin as output
+  pinMode(PIN_DC, OUTPUT);  // Set DC pin as output
+  pinMode(PIN_CS, OUTPUT);  // Set CS pin as output
 
   // Release the RST pin hold from deep sleep so the display can use it
   rtc_gpio_init((gpio_num_t)PIN_RST);                                     // Initialize the RTC GPIO port
@@ -28,22 +34,24 @@ void setup()
   rtc_gpio_set_direction((gpio_num_t)PIN_CS, RTC_GPIO_MODE_OUTPUT_ONLY); // Set the port to output only mode
   rtc_gpio_hold_dis((gpio_num_t)PIN_CS);                                 // Disable hold before setting the level
 
-  // enableRegionBorders(true);
-  //  enableClock(false);
+  Serial.println("Starting E-Paper Air Monitor...");
+  sensor.begin(); // Initialize the sensor
 
-  // Simulate changing CO2 value
-  co2Value += 10;
-  if (co2Value > 1200)
-    co2Value = 400;
+  if (sensor.update())
+  {
+    Sensor::Measurement measurement = sensor.getMeasurement(); // Get the latest sensor values
+    co2Value = measurement.co2;                                // Store the CO2 value in RTC memory
+    temperature = measurement.temperature;                     // Store the temperature in RTC memory
+    humidity = measurement.humidity;                           // Store the humidity in RTC memory
+    Serial.printf("CO2: %u PPM, Temperature: %.2f C, Humidity: %.2f %%\n", measurement.co2, measurement.temperature / 100.0, measurement.humidity / 100.0);
+  }
+
+  // enableClock(false);
 
   // Simulate time advancing
   currentMinutes++;
   if (currentMinutes >= 60)
     currentMinutes = 0;
-
-  // Random values for temperature and humidity
-  uint16_t temperature = 321; // Example temperature value
-  uint16_t humidity = 8;      // Example humidity value
 
   setBatteryPercent(75); // Set battery percentage to 75%
   setCo2Value(co2Value);
@@ -52,6 +60,7 @@ void setup()
   setTimeValue(12, currentMinutes);
   updateDisplay(esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER);
 
+  Serial.println("Entering deep sleep...");
   Serial.flush(); // Make sure all serial output is sent
 
   rtc_gpio_set_level((gpio_num_t)PIN_RST, HIGH); // Set HIGH for RST pin

@@ -28,10 +28,8 @@ namespace
     constexpr const char *UNIT_PERCENT = "%";
     constexpr const char *UNIT_CELSIUS = "C";
     constexpr const char *UNIT_PPM = "ppm";
-    
-    // Shared string buffer to avoid repeated allocations
-    static char stringBuffer[16];
-    
+
+    // Font definitions
     constexpr auto FONT_CO2 = &FreeMonoBold30pt7b;         // Font for CO2 value
     constexpr auto FONT_LABEL = &FreeMonoBold12pt7b;       // Font for labels
     constexpr auto FONT_UNIT = &FreeMonoBold9pt7b;         // Font for units (%, C, ppm)
@@ -73,13 +71,13 @@ namespace
 
     bool showClock = true;                            // Flag for showing clock
     bool fullRefresh = false;                         // Flag for full screen refresh
-    RTC_DATA_ATTR uint16_t displayRefreshCounter = 0; // Counter for partial updates
+    char stringBuffer[16];                            // Shared string buffer to avoid repeated allocations
+    RTC_DATA_ATTR uint16_t displayRefreshCounter = 0; // Counter for partial updates. Preserved in RTC memory
 
     void drawBackground()
     {
         // Draw horizontal line dividing the screen into top and bottom halves
         display.drawLine(DISPLAY_MARGIN, DISPLAY_CENTER_Y, DISPLAY_WIDTH - DISPLAY_MARGIN, DISPLAY_CENTER_Y, GxEPD_BLACK);
-
         // Draw vertical line dividing the bottom half into left and right sections
         display.drawLine(DISPLAY_CENTER_X, DISPLAY_CENTER_Y, DISPLAY_CENTER_X, DISPLAY_HEIGHT - DISPLAY_MARGIN, GxEPD_BLACK);
     }

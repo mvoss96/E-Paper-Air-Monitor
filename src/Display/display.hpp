@@ -1,14 +1,6 @@
 #pragma once
 #include <cstdint>
 
-// Pin definitions
-#define PIN_SCLK 4
-#define PIN_MOSI 3
-#define PIN_CS 5
-#define PIN_DC 6
-#define PIN_RST 7
-#define PIN_BUSY 20
-
 void enableClock(bool show);
 void updateDisplay(bool partial);
 
