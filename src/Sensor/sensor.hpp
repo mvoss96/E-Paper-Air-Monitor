@@ -19,9 +19,8 @@ public:
         uint16_t frcValue;         // FRC value
     };
 
-    static constexpr uint16_t NOT_READY_VALUE = 0xFFFF; // Value to indicate sensor is not ready
     Sensor() = default;                                 // Constructor
-    bool begin();                                       // Start the sensor and return true if it was detected
+    bool begin(bool rebooted);                          // Start the sensor and return true if it was detected
     bool updateFast();                                  // Update only temperature and humidity, returns true if new values are available
     bool update();                                      // Update the sensor values, returns true if new values are available
     Config getConfig() const;                           // Get the current sensor configuration

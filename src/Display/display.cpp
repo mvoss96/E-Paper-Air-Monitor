@@ -67,6 +67,8 @@ namespace
         uint8_t hours = 255;
         uint8_t minutes = 255;
         uint8_t batteryPercent = 0; // 0-100, battery percentage
+        bool usbConnected = false;  // USB connection state
+        bool error = false;         // Error State
     } currentState, previousState;
 
     bool showClock = true;                            // Flag for showing clock
@@ -122,17 +124,17 @@ namespace
         display.print(unitText);
     }
 
-    void drawHumidity(const uint16_t humidity)
+    void drawHumidity()
     {
         drawCenteredText(LABEL_HUMIDITY, FONT_LABEL, HUMIDITY_CENTER_X, HUMIDITY_LABEL_Y);
-        snprintf(stringBuffer, sizeof(stringBuffer), "%u", humidity / 100);
+        snprintf(stringBuffer, sizeof(stringBuffer), "%u", currentState.humidity / 100);
         drawValueWithUnit(stringBuffer, UNIT_PERCENT, FONT_HUMIDITY, HUMIDITY_CENTER_X, HUMIDITY_VALUE_Y);
     }
 
-    void drawTemperature(const uint16_t temperature)
+    void drawTemperature()
     {
         drawCenteredText(LABEL_TEMPERATURE, FONT_LABEL, TEMPERATURE_CENTER_X, TEMPERATURE_LABEL_Y);
-        snprintf(stringBuffer, sizeof(stringBuffer), "%d.%d", temperature / 100, temperature % 10);
+        snprintf(stringBuffer, sizeof(stringBuffer), "%d.%d", currentState.temperature / 100, currentState.temperature % 10);
         drawValueWithUnit(stringBuffer, UNIT_CELSIUS, FONT_TEMPERATURE, TEMPERATURE_CENTER_X, TEMPERATURE_VALUE_Y);
     }
 
@@ -145,19 +147,26 @@ namespace
         display.print(stringBuffer);
     }
 
-    void drawBatteryPercent(const uint8_t batteryPercent)
+    void drawBatteryPercent()
     {
-        snprintf(stringBuffer, sizeof(stringBuffer), "%u%%", batteryPercent);
         display.setFont(FONT_CLOCK);
         display.setTextColor(GxEPD_BLACK);
         display.setCursor(BATTERY_PERCENT_X, BATTERY_PERCENT_Y);
-        display.print(stringBuffer);
+        if (currentState.usbConnected)
+        {
+            display.print("USB");
+        }
+        else
+        {
+            snprintf(stringBuffer, sizeof(stringBuffer), "%u", currentState.batteryPercent);
+            display.print(stringBuffer);
+        }
     }
 
-    void drawCo2(const uint16_t co2)
+    void drawCo2()
     {
         drawCenteredText(LABEL_CO2, FONT_LABEL, DISPLAY_CENTER_X, CO2_LABEL_Y);
-        snprintf(stringBuffer, sizeof(stringBuffer), "%u", co2);
+        snprintf(stringBuffer, sizeof(stringBuffer), "%u", currentState.co2);
         drawValueWithUnit(stringBuffer, UNIT_PPM, FONT_CO2, DISPLAY_CENTER_X, CO2_VALUE_Y);
     }
 
@@ -230,12 +239,20 @@ void updateDisplay(bool partial)
         setupDisplay(partial);
         display.setFullWindow();
         display.fillScreen(GxEPD_WHITE);
-        drawBackground();
+        if (currentState.error)
+        {
+            drawCenteredText("SENSOR", FONT_CO2, DISPLAY_CENTER_X, DISPLAY_CENTER_Y - 50);
+            drawCenteredText("ERROR", FONT_CO2, DISPLAY_CENTER_X, DISPLAY_CENTER_Y);
+        }
+        else
+        {
+            drawBackground();
 
-        // Draw all elements if they have valid values
-        drawCo2(currentState.co2);
-        drawTemperature(currentState.temperature);
-        drawHumidity(currentState.humidity);
+            // Draw all elements if they have valid values
+            drawCo2();
+            drawTemperature();
+            drawHumidity();
+        }
 
         if (showClock)
         {
@@ -243,13 +260,18 @@ void updateDisplay(bool partial)
         }
 
         // Always draw battery percentage
-        drawBatteryPercent(currentState.batteryPercent);
+        drawBatteryPercent();
         fullRefresh = !partial; // Set flag for full screen refresh
         display.display(partial);
         fullRefresh = false; // Reset flag after display update
         previousState = currentState;
         display.hibernate();
     }
+}
+
+void setErrorState(bool error)
+{
+    currentState.error = error;
 }
 
 void setCo2Value(const uint16_t co2)
@@ -282,4 +304,9 @@ void setBatteryPercent(const uint8_t percent)
 {
     // Clamp battery percentage to valid range (0-100)
     currentState.batteryPercent = (percent > 100) ? 100 : percent;
+}
+
+void setUSBConnected(const bool connected)
+{
+    currentState.usbConnected = connected;
 }
