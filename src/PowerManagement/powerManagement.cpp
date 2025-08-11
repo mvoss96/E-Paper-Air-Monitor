@@ -9,7 +9,7 @@ static constexpr uint32_t BAT_EMPTY_VOLTAGE = 3000;          // Empty battery vo
 static constexpr uint32_t BAT_FULL_VOLTAGE = 4200;           // Full battery voltage in mV
 static constexpr float BAT_VOLTAGE_DIVIDER_RATIO = 4.38;     // Voltage divider ratio for battery voltage measurement
 
-void enterSleepMode(bool vccConnected)
+void enterSleepMode()
 {
     Serial.println("Entering deep sleep...");
     Serial.flush(); // Make sure all serial output is sent
@@ -21,19 +21,12 @@ void enterSleepMode(bool vccConnected)
     rtc_gpio_hold_en((gpio_num_t)PIN_DC);        // Enable hold for the DC pin
 
     rtc_gpio_set_level((gpio_num_t)PIN_CS, LOW); // Set LOW for CS pin
-    rtc_gpio_hold_en((gpio_num_t)PIN_CS);        // Enable hold for the
+    rtc_gpio_hold_en((gpio_num_t)PIN_CS);        // Enable hold for the CS pin
 
     esp_deep_sleep_disable_rom_logging(); // Disable ROM logging to save power
 
-    if (vccConnected)
-    {
-        esp_sleep_enable_ext1_wakeup(1ULL << PIN_USB_DETECT, ESP_EXT1_WAKEUP_ANY_HIGH); // Enable wakeup on USB detect pin
-        esp_sleep_enable_timer_wakeup(DEEP_SLEEP_DURATION * 1000000);                   // Configure timer wake up
-    }
-    else
-    {
-        esp_sleep_enable_timer_wakeup(DEEP_SLEEP_DURATION_CONNECTED * 1000000); // Configure timer wake up
-    }
+    esp_sleep_enable_ext1_wakeup(1ULL << PIN_USB_DETECT, ESP_EXT1_WAKEUP_ANY_HIGH); // Enable wakeup when USB is connected
+    esp_sleep_enable_timer_wakeup(DEEP_SLEEP_DURATION * 1000000);                  // Configure timer wake up for 60 seconds
 
     esp_deep_sleep_start(); // Enter deep sleep
 }
@@ -51,4 +44,3 @@ uint8_t getBatteryPercentage(uint32_t batteryVoltage)
     }
     return map(batteryVoltage, BAT_EMPTY_VOLTAGE, BAT_FULL_VOLTAGE, 0, 100);
 }
-

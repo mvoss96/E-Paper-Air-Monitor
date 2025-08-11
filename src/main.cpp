@@ -13,6 +13,7 @@ struct RtcData
 };
 
 RTC_DATA_ATTR RtcData rtcData{};
+Sensor sensor;
 
 void initGpio()
 {
@@ -35,45 +36,57 @@ void initGpio()
   rtc_gpio_hold_dis((gpio_num_t)PIN_CS);                                 // Disable hold before setting the level
 }
 
-void setup()
+bool getUsbConnected()
 {
-  Serial.begin(115200);
-  Serial.println("Starting E-Paper Air Monitor...");
+  return digitalRead(PIN_USB_DETECT);
+}
 
-  initGpio(); // Initialize GPIO pins
-  bool usbConnected = digitalRead(PIN_USB_DETECT);
-  bool rebootedFromDeepSleep = esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT1;
-
-  Sensor sensor;
-  sensor.begin(rebootedFromDeepSleep);
-
-  if (usbConnected)
+void usbMode(bool reboot)
+{
+  while (getUsbConnected())
   {
-    rtcData.wakeCount = 0; // Reset wake count if USB is connected
-  }
-  else
-  {
-    // Read Battery Voltage
-    uint32_t batteryVoltage = readBatteryVoltage();
-    uint8_t batteryPercent = getBatteryPercentage(batteryVoltage);
-    Serial.printf("Battery Voltage: %u mV, Percentage: %u%%\n", batteryVoltage, batteryPercent);
-    setBatteryPercent(batteryPercent);
+    unsigned long startTime = millis();
+    sensor.update();
+    auto measurement = sensor.getMeasurement();
+    setUSBConnected(true);
+    setCo2Value(measurement.co2);
+    setErrorState(measurement.error);
+    setHumidityValue(measurement.humidity);
+    setTemperatureValue(measurement.temperature);
+    updateDisplay(reboot);
 
-    if (rebootedFromDeepSleep)
-    {
-      rtcData.wakeCount++;
+    // Update RTC
+    rtcData.co2Value = measurement.co2;
+    rtcData.wakeCount = 0;
+
+    unsigned long elapsedTime = millis() - startTime;
+    if (elapsedTime < 5000) {
+      delay(5000 - elapsedTime);
     }
+  }
+
+  /* USB is no longer connected return to setup() */
+}
+
+void batteryMode(bool reboot)
+{
+  // Read Battery Voltage
+  uint32_t batteryVoltage = readBatteryVoltage();
+  uint8_t batteryPercent = getBatteryPercentage(batteryVoltage);
+  Serial.printf("Battery Voltage: %u mV, Percentage: %u%%\n", batteryVoltage, batteryPercent);
+
+  if (reboot)
+  {
+    rtcData.wakeCount++;
   }
 
   if (rtcData.wakeCount % 5 == 0)
   {
-    // Every 5th wake, perform a full sensor update
-    sensor.update();
+    sensor.update(); // Every 5th wake, perform a full sensor update
   }
   else
   {
-    // Fast update for temperature and humidity only
-    sensor.updateFast();
+    sensor.updateFast(); // Fast update for temperature and humidity only
   }
 
   Sensor::Measurement measurement = sensor.getMeasurement(); // Get the latest sensor values
@@ -81,16 +94,37 @@ void setup()
   {
     rtcData.co2Value = measurement.co2;
   }
-
-  // Update the Display
+  setBatteryPercent(batteryPercent);
   setCo2Value(rtcData.co2Value);
   setErrorState(measurement.error);
   setHumidityValue(measurement.humidity);
   setTemperatureValue(measurement.temperature);
-  setUSBConnected(usbConnected);
+  setUSBConnected(false);
 
-  updateDisplay(rebootedFromDeepSleep);
-  enterSleepMode(usbConnected);
+  updateDisplay(reboot);
+}
+
+void setup()
+{
+  Serial.begin(115200);
+  Serial.println("Starting E-Paper Air Monitor...");
+
+  initGpio(); // Initialize GPIO pins
+  bool rebootedFromDeepSleep = esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT1;
+  sensor.begin(rebootedFromDeepSleep);
+
+  if (getUsbConnected())
+  {
+    Serial.println("USB is connected, entering USB mode...");
+    usbMode(rebootedFromDeepSleep);
+  }
+  else
+  {
+    Serial.println("USB is not connected, entering battery mode...");
+    batteryMode(rebootedFromDeepSleep);
+  }
+
+  enterSleepMode();
 }
 
 void loop()
