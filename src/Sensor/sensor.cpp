@@ -48,12 +48,14 @@ bool Sensor::begin(bool rebooted)
     {
         getStoredConfig();
         scd4x_sensor_type_e sensor;
-        bool success = mySensor.getFeatureSetVersion(&sensor);
-        Serial.printf("Sensor determined to be of type: SCD4%d\n", sensor);
+        mySensor.getFeatureSetVersion(&sensor);
         mySensor.setTemperatureOffset(mConfig.temperatureOffset / 100);
-        printf("Temperature offset is: %.2f\n", mySensor.getTemperatureOffset());
-        printf("Sensor altitude is currently: %d\n", mySensor.getSensorAltitude());
-        printf("Automatic Self Calibration Enabled: %s\n", mySensor.getAutomaticSelfCalibrationEnabled() ? "true" : "false");
+        Serial.printf(
+            "Sensor determined to be of type: SCD4%d Temperature offset is: %.2f Sensor altitude is currently: %d Automatic Self Calibration Enabled: %s\n",
+            sensor,
+            mySensor.getTemperatureOffset(),
+            mySensor.getSensorAltitude(),
+            mySensor.getAutomaticSelfCalibrationEnabled() ? "true" : "false");
     }
 
     return true;
@@ -61,10 +63,10 @@ bool Sensor::begin(bool rebooted)
 
 bool Sensor::updateFast()
 {
-    Serial.println("Sensor RH Measurement Requested");
+    Serial.println("Sensor Fast Measurement Requested");
     if (!mySensor.measureSingleShotRHTOnly())
     {
-        Serial.println("Error: RH Single Shot Measurement failed!");
+        Serial.println("Error: Fast Single Shot Measurement failed!");
         mMeasurement.error = true;
         return false;
     }
@@ -76,15 +78,10 @@ bool Sensor::updateFast()
         esp_light_sleep_start();
     }
 
-    if (mySensor.readMeasurement())
-    {
-        mMeasurement.temperature = mySensor.getTemperature() * 100;
-        mMeasurement.humidity = mySensor.getHumidity() * 100;
-        return true;
-    }
-    Serial.println("No new measurement data available.");
-
-    return false;
+    mMeasurement.temperature = mySensor.getTemperature() * 100;
+    mMeasurement.humidity = mySensor.getHumidity() * 100;
+    printMeasurement();
+    return true;
 }
 
 bool Sensor::update()
@@ -108,6 +105,7 @@ bool Sensor::update()
     mMeasurement.co2 = mySensor.getCO2();
     mMeasurement.temperature = mySensor.getTemperature() * 100;
     mMeasurement.humidity = mySensor.getHumidity() * 100;
+    printMeasurement();
     return true;
 }
 
@@ -130,4 +128,12 @@ void Sensor::startFRC()
     printf("FRC completed. Correction value: %.2f\n", correction);
     delay(500);
     ESP.restart();
+}
+
+void Sensor::printMeasurement() const
+{
+    Serial.printf("CO2: %d, Temperature: %d.%02d, Humidity: %d.%02d\n",
+                  mMeasurement.co2,
+                  mMeasurement.temperature / 100, abs(mMeasurement.temperature % 100),
+                  mMeasurement.humidity / 100, abs(mMeasurement.humidity % 100));
 }

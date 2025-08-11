@@ -36,4 +36,5 @@ private:
     unsigned long mSensorStartupTime = 0; // Sensor startup time
     Measurement mMeasurement{};           // Current measurement values
     Config mConfig{};                     // Sensor configuration
+    void printMeasurement() const;        // Print the current measurement values for debugging
 };

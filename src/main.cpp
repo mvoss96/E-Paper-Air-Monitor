@@ -60,7 +60,8 @@ void usbMode(bool reboot)
     rtcData.wakeCount = 0;
 
     unsigned long elapsedTime = millis() - startTime;
-    if (elapsedTime < 5000) {
+    if (elapsedTime < 5000)
+    {
       delay(5000 - elapsedTime);
     }
   }
@@ -107,21 +108,29 @@ void batteryMode(bool reboot)
 void setup()
 {
   Serial.begin(115200);
-  Serial.println("Starting E-Paper Air Monitor...");
+  Serial.println("\n---Starting E-Paper Air Monitor---");
 
   initGpio(); // Initialize GPIO pins
-  bool rebootedFromDeepSleep = esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT1;
-  sensor.begin(rebootedFromDeepSleep);
+  bool reboot = esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT1;
+  if (reboot)
+  {
+    Serial.printf("Wake count: %d\n",  rtcData.wakeCount);
+  }
+  else
+  {
+    Serial.println("First boot, initializing sensor...");
+  }
+  sensor.begin(reboot);
 
   if (getUsbConnected())
   {
     Serial.println("USB is connected, entering USB mode...");
-    usbMode(rebootedFromDeepSleep);
+    usbMode(reboot);
   }
   else
   {
     Serial.println("USB is not connected, entering battery mode...");
-    batteryMode(rebootedFromDeepSleep);
+    batteryMode(reboot);
   }
 
   enterSleepMode();
