@@ -41,38 +41,6 @@ bool getUsbConnected()
   return digitalRead(PIN_USB_DETECT);
 }
 
-void usbMode(bool reboot)
-{
-  while (getUsbConnected())
-  {
-    unsigned long startTime = millis();
-    sensor.update();
-    auto measurement = sensor.getMeasurement();
-    setUSBConnected(true);
-    setCo2Value(measurement.co2);
-    setErrorState(measurement.error);
-    setHumidityValue(measurement.humidity);
-    setTemperatureValue(measurement.temperature);
-    updateDisplay(reboot);
-
-    // Update RTC
-    rtcData.co2Value = measurement.co2;
-    rtcData.wakeCount = 0;
-
-    unsigned long elapsedTime = millis() - startTime;
-    while (millis() - startTime < 5000)
-    {
-      if (!getUsbConnected())
-      {
-        return;
-      }
-      delay(100);
-    }
-  }
-
-  /* USB is no longer connected return to setup() */
-}
-
 void batteryMode(bool reboot)
 {
   // Read Battery Voltage
@@ -107,6 +75,41 @@ void batteryMode(bool reboot)
   setUSBConnected(false);
 
   updateDisplay(reboot);
+  enterSleepMode();
+}
+
+void usbMode(bool reboot)
+{
+  while (getUsbConnected())
+  {
+    unsigned long startTime = millis();
+    sensor.update();
+    auto measurement = sensor.getMeasurement();
+    setUSBConnected(true);
+    setCo2Value(measurement.co2);
+    setErrorState(measurement.error);
+    setHumidityValue(measurement.humidity);
+    setTemperatureValue(measurement.temperature);
+    updateDisplay(reboot);
+
+    // Update RTC
+    rtcData.co2Value = measurement.co2;
+    rtcData.wakeCount = 0;
+    reboot = true;
+
+    unsigned long elapsedTime = millis() - startTime;
+    while (millis() - startTime < 5000)
+    {
+      if (!getUsbConnected())
+      {
+        return;
+      }
+      delay(100);
+    }
+  }
+
+  Serial.println("USB disconnected enter Battery Mode");
+  batteryMode(reboot);
 }
 
 void setup()
@@ -136,8 +139,6 @@ void setup()
     Serial.println("USB is not connected, entering battery mode...");
     batteryMode(reboot);
   }
-
-  enterSleepMode();
 }
 
 void loop()
