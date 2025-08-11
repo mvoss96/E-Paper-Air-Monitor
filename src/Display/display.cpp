@@ -71,7 +71,7 @@ namespace
         bool error = false;         // Error State
     } currentState, previousState;
 
-    bool showClock = true;                            // Flag for showing clock
+    bool showClock = false;                            // Flag for showing clock
     bool fullRefresh = false;                         // Flag for full screen refresh
     char stringBuffer[16];                            // Shared string buffer to avoid repeated allocations
     RTC_DATA_ATTR uint16_t displayRefreshCounter = 0; // Counter for partial updates. Preserved in RTC memory
