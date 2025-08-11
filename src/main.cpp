@@ -85,17 +85,16 @@ void usbMode(bool reboot)
     unsigned long startTime = millis();
     sensor.update();
     auto measurement = sensor.getMeasurement();
-    setUSBConnected(true);
+    
     setCo2Value(measurement.co2);
     setErrorState(measurement.error);
     setHumidityValue(measurement.humidity);
     setTemperatureValue(measurement.temperature);
-    updateDisplay(reboot);
+    updateDisplay(true);
 
     // Update RTC
     rtcData.co2Value = measurement.co2;
     rtcData.wakeCount = 0;
-    reboot = true;
 
     unsigned long elapsedTime = millis() - startTime;
     while (millis() - startTime < 5000)
@@ -109,7 +108,7 @@ void usbMode(bool reboot)
   }
 
   Serial.println("USB disconnected enter Battery Mode");
-  batteryMode(reboot);
+  batteryMode(true);
 }
 
 void setup()

@@ -172,7 +172,6 @@ namespace
 
     void waitBusyFunction()
     {
-        Serial.println("Reducing CPU frequency during busy wait");
         setCpuFrequencyMhz(MIN_CPU_FREQ); // Reduce CPU frequency to save power during busy wait
 
         do
@@ -189,7 +188,6 @@ namespace
 
         } while (gpio_get_level((gpio_num_t)PIN_BUSY)); // Wait for display to finish updating
         
-        Serial.println("Display update complete, restoring CPU frequency");
         setCpuFrequencyMhz(MAX_CPU_FREQ); // Restore CPU frequency after busy wait
     }
 
