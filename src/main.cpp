@@ -1,15 +1,9 @@
 #include "Display/display.hpp"
 #include "Sensor/sensor.hpp"
+#include "PowerManagement/powerManagement.hpp"
 
 #include <driver/rtc_io.h>
 #include <Arduino.h>
-
-// Configuration Values
-constexpr uint32_t BAT_EMPTY_VOLTAGE = 3000;          // Empty battery voltage in mV
-constexpr uint32_t BAT_FULL_VOLTAGE = 4200;           // Full battery voltage in mV
-constexpr float BAT_VOLTAGE_DIVIDER_RATIO = 4.38;     // Voltage divider ratio for battery voltage measurement
-constexpr uint32_t DEEP_SLEEP_DURATION = 60;          // Deep sleep duration in seconds (60 seconds = 1 minute)
-constexpr uint32_t DEEP_SLEEP_DURATION_CONNECTED = 5; // Deep sleep duration when USB is connected (5 seconds)
 
 // RTC memory to store persistent data across deep sleep
 struct RtcData
@@ -41,40 +35,6 @@ void initGpio()
   rtc_gpio_hold_dis((gpio_num_t)PIN_CS);                                 // Disable hold before setting the level
 }
 
-void goToSleep(bool usbConnected)
-{
-  Serial.println("Entering deep sleep...");
-  Serial.flush(); // Make sure all serial output is sent
-
-  rtc_gpio_set_level((gpio_num_t)PIN_RST, HIGH); // Set HIGH for RST pin
-  rtc_gpio_hold_en((gpio_num_t)PIN_RST);         // Enable hold for the RTC GPIO port
-
-  rtc_gpio_set_level((gpio_num_t)PIN_DC, LOW); // Set LOW for DC pin
-  rtc_gpio_hold_en((gpio_num_t)PIN_DC);        // Enable hold for the DC pin
-
-  rtc_gpio_set_level((gpio_num_t)PIN_CS, LOW); // Set LOW for CS pin
-  rtc_gpio_hold_en((gpio_num_t)PIN_CS);        // Enable hold for the
-
-  esp_deep_sleep_disable_rom_logging(); // Disable ROM logging to save power
-
-  if (usbConnected)
-  {
-    esp_sleep_enable_timer_wakeup(DEEP_SLEEP_DURATION_CONNECTED * 1000000); // Configure timer wake up
-  }
-  else
-  {
-    esp_sleep_enable_ext1_wakeup(1ULL << PIN_USB_DETECT, ESP_EXT1_WAKEUP_ANY_HIGH); // Enable wakeup on USB detect pin
-    esp_sleep_enable_timer_wakeup(DEEP_SLEEP_DURATION * 1000000);                   // Configure timer wake up
-  }
-
-  esp_deep_sleep_start(); // Enter deep sleep
-}
-
-uint32_t readBatteryVoltage()
-{
-  return analogReadMilliVolts(PIN_BAT_VOLTAGE) * BAT_VOLTAGE_DIVIDER_RATIO;
-}
-
 void setup()
 {
   Serial.begin(115200);
@@ -95,7 +55,7 @@ void setup()
   {
     // Read Battery Voltage
     uint32_t batteryVoltage = readBatteryVoltage();
-    uint8_t batteryPercent = map(batteryVoltage, BAT_EMPTY_VOLTAGE, BAT_FULL_VOLTAGE, 0, 100);
+    uint8_t batteryPercent = getBatteryPercentage(batteryVoltage);
     Serial.printf("Battery Voltage: %u mV, Percentage: %u%%\n", batteryVoltage, batteryPercent);
     setBatteryPercent(batteryPercent);
 
@@ -117,21 +77,20 @@ void setup()
   }
 
   Sensor::Measurement measurement = sensor.getMeasurement(); // Get the latest sensor values
-  if (measurement.co2 > 0)
+  if (measurement.co2 > 0)                                   // Update CO2 value in RTC memory
   {
-    rtcData.co2Value = measurement.co2; // Update the CO2 value in RTC memory
+    rtcData.co2Value = measurement.co2;
   }
-  Serial.printf("CO2: %u PPM, Temperature: %.2f C, Humidity: %.2f %%\n", measurement.co2, measurement.temperature / 100.0, measurement.humidity / 100.0);
 
   // Update the Display
   setCo2Value(rtcData.co2Value);
-  setTemperatureValue(measurement.temperature);
-  setHumidityValue(measurement.humidity);
   setErrorState(measurement.error);
+  setHumidityValue(measurement.humidity);
+  setTemperatureValue(measurement.temperature);
   setUSBConnected(usbConnected);
 
   updateDisplay(rebootedFromDeepSleep);
-  goToSleep(usbConnected);
+  enterSleepMode(usbConnected);
 }
 
 void loop()

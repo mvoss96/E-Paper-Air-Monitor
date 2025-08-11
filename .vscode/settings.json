@@ -19,6 +19,7 @@
         "format": "cpp",
         "initializer_list": "cpp",
         "mutex": "cpp",
-        "span": "cpp"
+        "span": "cpp",
+        "cstdint": "cpp"
     }
 }
