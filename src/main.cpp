@@ -4,20 +4,25 @@
 #include <driver/rtc_io.h>
 #include <Arduino.h>
 
-// RTC memory to store persistent data across deep sleep
-RTC_DATA_ATTR uint16_t co2Value = 0;       // CO2 value in PPM
-RTC_DATA_ATTR uint16_t temperature = 0;    // Temperature in C * 100
-RTC_DATA_ATTR uint16_t humidity = 0;       // Humidity in % *
-RTC_DATA_ATTR bool errorState = false;     // Error state flag
-RTC_DATA_ATTR uint16_t currentMinutes = 0; // Current minutes for clock display
-RTC_DATA_ATTR uint16_t wakeCount = 0;      // Wake count to track deep sleep cycles
-
+// Configuration Values
+constexpr uint32_t BAT_EMPTY_VOLTAGE = 3000;          // Empty battery voltage in mV
+constexpr uint32_t BAT_FULL_VOLTAGE = 4200;           // Full battery voltage in mV
+constexpr float BAT_VOLTAGE_DIVIDER_RATIO = 4.38;     // Voltage divider ratio for battery voltage measurement
 constexpr uint32_t DEEP_SLEEP_DURATION = 60;          // Deep sleep duration in seconds (60 seconds = 1 minute)
 constexpr uint32_t DEEP_SLEEP_DURATION_CONNECTED = 5; // Deep sleep duration when USB is connected (5 seconds)
-constexpr float BAT_VOLTAGE_DIVIDER_RATIO = 4.38;     // Voltage divider ratio for battery voltage measurement
-constexpr uint32_t BAT_EMPTY_VOLTAGE = 3000;          // Empty battery voltage in mV
-constexpr uint32_t BAT_FULL_VOLTAGE = 4200;           // Full battery voltage
 
+// RTC memory to store persistent data across deep sleep
+struct RtcData
+{
+  uint16_t co2Value = 0;       // CO2 value in PPM
+  uint16_t currentMinutes = 0; // Current minutes for clock display
+  bool errorState = false;     // Error state flag
+  uint16_t humidity = 0;       // Humidity in % *
+  uint16_t temperature = 0;    // Temperature in C * 100
+  uint16_t wakeCount = 0       // Read the battery voltage in mV;      // Wake count to track deep sleep cycles
+};
+
+RTC_DATA_ATTR RtcData rtcData;
 Sensor sensor;
 bool usbConnected = false;
 
@@ -29,7 +34,6 @@ void initGpio()
   pinMode(PIN_BAT_VOLTAGE, INPUT); // Set Battery Voltage pin as input
   pinMode(PIN_USB_DETECT, INPUT);  // Set USB Detect pin as input
 
-  // Release the RST pin hold from deep sleep so the display can use it
   rtc_gpio_init((gpio_num_t)PIN_RST);                                     // Initialize the RTC GPIO port
   rtc_gpio_set_direction((gpio_num_t)PIN_RST, RTC_GPIO_MODE_OUTPUT_ONLY); // Set the port to output only mode
   rtc_gpio_hold_dis((gpio_num_t)PIN_RST);                                 // Disable hold before setting the level
@@ -72,6 +76,11 @@ void goToSleep()
   esp_deep_sleep_start(); // Enter deep sleep
 }
 
+uint32_t readBatteryVoltage()
+{
+  return analogReadMilliVolts(PIN_BAT_VOLTAGE) * BAT_VOLTAGE_DIVIDER_RATIO;
+}
+
 void setup()
 {
   Serial.begin(115200);
@@ -85,22 +94,22 @@ void setup()
 
   if (usbConnected)
   {
-    wakeCount = 0; // Reset wake count if USB is connected
+    rtcData.wakeCount = 0; // Reset wake count if USB is connected
   }
   else
   {
     // Read Battery Voltage
-    uint32_t batteryVoltage = analogReadMilliVolts(PIN_BAT_VOLTAGE) * BAT_VOLTAGE_DIVIDER_RATIO; // Read the battery voltage in mV
-    uint32_t batteryPercent = map(batteryVoltage, BAT_EMPTY_VOLTAGE, BAT_FULL_VOLTAGE, 0, 100);  // Map the voltage to a percentage
+    uint32_t batteryVoltage = readBatteryVoltage();
+    uint8_t batteryPercent = map(batteryVoltage, BAT_EMPTY_VOLTAGE, BAT_FULL_VOLTAGE, 0, 100);
     setBatteryPercent(batteryPercent);
 
     if (rebootedFromDeepSleep)
     {
-      wakeCount++;
+      rtcData.wakeCount++;
     }
   }
 
-  if (wakeCount % 5 == 0)
+  if (rtcData.wakeCount % 5 == 0)
   {
     // Every 5th wake, perform a full sensor update
     sensor.update();
@@ -114,18 +123,18 @@ void setup()
   Sensor::Measurement measurement = sensor.getMeasurement(); // Get the latest sensor values
   if (measurement.co2 > 0)
   {
-    co2Value = measurement.co2; // Store the CO2 value in RTC memory
+    rtcData.co2Value = measurement.co2; // Store the CO2 value in RTC memory
   }
-  temperature = measurement.temperature; // Store the temperature in RTC memory
-  humidity = measurement.humidity;       // Store the humidity in RTC memory
-  errorState = measurement.error;        // Store the error state in RTC memory
+  rtcData.temperature = measurement.temperature; // Store the temperature in RTC memory
+  rtcData.humidity = measurement.humidity;       // Store the humidity in RTC memory
+  rtcData.errorState = measurement.error;        // Store the error state in RTC memory
   Serial.printf("CO2: %u PPM, Temperature: %.2f C, Humidity: %.2f %%\n", measurement.co2, measurement.temperature / 100.0, measurement.humidity / 100.0);
 
   enableClock(false);
-  setCo2Value(co2Value);
-  setTemperatureValue(temperature);
-  setHumidityValue(humidity);
-  setErrorState(errorState);
+  setCo2Value(rtcData.co2Value);
+  setTemperatureValue(rtcData.temperature);
+  setHumidityValue(rtcData.humidity);
+  setErrorState(rtcData.errorState);
   setUSBConnected(usbConnected);
 
   updateDisplay(rebootedFromDeepSleep);

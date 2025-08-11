@@ -89,7 +89,7 @@ bool Sensor::updateFast()
 
 bool Sensor::update()
 {
-    Serial.println("Sensor Measurement Requested");
+    Serial.print("Sensor Measurement Requested ");
     if (!mySensor.measureSingleShot())
     {
         Serial.println("Error: Single Shot Measurement failed!");
@@ -103,17 +103,12 @@ bool Sensor::update()
         esp_sleep_enable_timer_wakeup(SENSOR_SLOW_SLEEP_TIME * 1000);
         esp_light_sleep_start();
     }
+    Serial.println();
 
-    if (mySensor.readMeasurement())
-    {
-        mMeasurement.co2 = mySensor.getCO2();
-        mMeasurement.temperature = mySensor.getTemperature() * 100;
-        mMeasurement.humidity = mySensor.getHumidity() * 100;
-        return true;
-    }
-    Serial.println("No new measurement data available.");
-
-    return false;
+    mMeasurement.co2 = mySensor.getCO2();
+    mMeasurement.temperature = mySensor.getTemperature() * 100;
+    mMeasurement.humidity = mySensor.getHumidity() * 100;
+    return true;
 }
 
 Sensor::Config Sensor::getConfig() const
