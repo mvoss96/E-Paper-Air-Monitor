@@ -60,9 +60,13 @@ void usbMode(bool reboot)
     rtcData.wakeCount = 0;
 
     unsigned long elapsedTime = millis() - startTime;
-    if (elapsedTime < 5000)
+    while (millis() - startTime < 5000)
     {
-      delay(5000 - elapsedTime);
+      if (!getUsbConnected())
+      {
+        return;
+      }
+      delay(100);
     }
   }
 
@@ -114,7 +118,7 @@ void setup()
   bool reboot = esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT1;
   if (reboot)
   {
-    Serial.printf("Wake count: %d\n",  rtcData.wakeCount);
+    Serial.printf("Wake count: %d\n", rtcData.wakeCount);
   }
   else
   {
