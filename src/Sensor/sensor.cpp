@@ -74,6 +74,7 @@ bool Sensor::updateFast()
     while (mySensor.getDataReadyStatus() == false)
     {
         Serial.print(".");
+        Serial.flush();
         esp_sleep_enable_timer_wakeup(SENSOR_FAST_SLEEP_TIME * 1000);
         esp_light_sleep_start();
     }
@@ -97,6 +98,7 @@ bool Sensor::update()
     while (mySensor.getDataReadyStatus() == false)
     {
         Serial.print(".");
+        Serial.flush();
         esp_sleep_enable_timer_wakeup(SENSOR_SLOW_SLEEP_TIME * 1000);
         esp_light_sleep_start();
     }

@@ -8,8 +8,10 @@
 // RTC memory to store persistent data across deep sleep
 struct RtcData
 {
-  uint16_t co2Value = 0;  // CO2 value in PPM
-  uint16_t wakeCount = 0; // Wake count to track deep sleep cycles
+  uint16_t co2Value = 0;         // CO2 value in PPM
+  uint16_t humidityValue = 0;    // Humidity value in % * 100
+  uint16_t temperatureValue = 0; // Temperature value in C * 100
+  uint16_t wakeCount = 0;        // Wake count to track deep sleep cycles
 };
 
 RTC_DATA_ATTR RtcData rtcData{};
@@ -67,11 +69,14 @@ void batteryMode(bool reboot)
   {
     rtcData.co2Value = measurement.co2;
   }
+  rtcData.humidityValue = measurement.humidity;
+  rtcData.temperatureValue = measurement.temperature;
+
   setBatteryPercent(batteryPercent);
   setCo2Value(rtcData.co2Value);
   setErrorState(measurement.error);
-  setHumidityValue(measurement.humidity);
-  setTemperatureValue(measurement.temperature);
+  setHumidityValue(rtcData.humidityValue);
+  setTemperatureValue(rtcData.temperatureValue);
   setUSBConnected(false);
 
   updateDisplay(reboot);
@@ -80,12 +85,13 @@ void batteryMode(bool reboot)
 
 void usbMode(bool reboot)
 {
+  setUSBConnected(true);
   while (getUsbConnected())
   {
     unsigned long startTime = millis();
     sensor.update();
     auto measurement = sensor.getMeasurement();
-    
+
     setCo2Value(measurement.co2);
     setErrorState(measurement.error);
     setHumidityValue(measurement.humidity);
@@ -94,6 +100,8 @@ void usbMode(bool reboot)
 
     // Update RTC
     rtcData.co2Value = measurement.co2;
+    rtcData.humidityValue = measurement.humidity;
+    rtcData.temperatureValue = measurement.temperature;
     rtcData.wakeCount = 0;
 
     unsigned long elapsedTime = millis() - startTime;
