@@ -14,6 +14,8 @@ struct RtcData
   uint16_t wakeCount = 0;        // Wake count to track deep sleep cycles
 };
 
+static constexpr uint32_t DEEP_SLEEP_DURATION = 60;          // Deep sleep duration in seconds (60 seconds = 1 minute)
+static constexpr uint32_t DEEP_SLEEP_DURATION_CONNECTED = 5; // Deep sleep duration when USB is connected (5 seconds)
 RTC_DATA_ATTR RtcData rtcData{};
 Sensor sensor;
 
@@ -80,43 +82,29 @@ void batteryMode(bool reboot)
   setUSBConnected(false);
 
   updateDisplay(reboot);
-  enterSleepMode();
+  enterSleepMode(DEEP_SLEEP_DURATION, false);
 }
 
 void usbMode(bool reboot)
 {
+  unsigned long startTime = millis();
+  sensor.update();
+  auto measurement = sensor.getMeasurement();
+
   setUSBConnected(true);
-  while (getUsbConnected())
-  {
-    unsigned long startTime = millis();
-    sensor.update();
-    auto measurement = sensor.getMeasurement();
+  setCo2Value(measurement.co2);
+  setErrorState(measurement.error);
+  setHumidityValue(measurement.humidity);
+  setTemperatureValue(measurement.temperature);
 
-    setCo2Value(measurement.co2);
-    setErrorState(measurement.error);
-    setHumidityValue(measurement.humidity);
-    setTemperatureValue(measurement.temperature);
-    updateDisplay(true);
+  // Update RTC
+  rtcData.co2Value = measurement.co2;
+  rtcData.humidityValue = measurement.humidity;
+  rtcData.temperatureValue = measurement.temperature;
+  rtcData.wakeCount = 0;
 
-    // Update RTC
-    rtcData.co2Value = measurement.co2;
-    rtcData.humidityValue = measurement.humidity;
-    rtcData.temperatureValue = measurement.temperature;
-    rtcData.wakeCount = 0;
-
-    unsigned long elapsedTime = millis() - startTime;
-    while (millis() - startTime < 5000)
-    {
-      if (!getUsbConnected())
-      {
-        return;
-      }
-      delay(100);
-    }
-  }
-
-  Serial.println("USB disconnected enter Battery Mode");
-  batteryMode(true);
+  updateDisplay(true);
+  enterSleepMode(DEEP_SLEEP_DURATION_CONNECTED, true);
 }
 
 void setup()

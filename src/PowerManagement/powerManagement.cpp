@@ -3,15 +3,13 @@
 #include "driver/rtc_io.h"
 #include <Arduino.h>
 
-static constexpr uint32_t DEEP_SLEEP_DURATION = 60;          // Deep sleep duration in seconds (60 seconds = 1 minute)
-static constexpr uint32_t DEEP_SLEEP_DURATION_CONNECTED = 5; // Deep sleep duration when USB is connected (5 seconds)
-static constexpr uint32_t BAT_EMPTY_VOLTAGE = 3000;          // Empty battery voltage in mV
-static constexpr uint32_t BAT_FULL_VOLTAGE = 4200;           // Full battery voltage in mV
-static constexpr float BAT_VOLTAGE_DIVIDER_RATIO = 4.38;     // Voltage divider ratio for battery voltage measurement
+static constexpr uint32_t BAT_EMPTY_VOLTAGE = 3000;      // Empty battery voltage in mV
+static constexpr uint32_t BAT_FULL_VOLTAGE = 4200;       // Full battery voltage in mV
+static constexpr float BAT_VOLTAGE_DIVIDER_RATIO = 4.38; // Voltage divider ratio for battery voltage measurement
 
-void enterSleepMode()
+void enterSleepMode(uint16_t duration, bool connected)
 {
-    Serial.println("Entering deep sleep...");
+    Serial.printf("Entering deep sleep for %d seconds. Enabling wakeup for USB %s...\n", duration, connected ? "disconnection" : "connection");
     Serial.flush(); // Make sure all serial output is sent
 
     rtc_gpio_set_level((gpio_num_t)PIN_RST, HIGH); // Set HIGH for RST pin
@@ -25,8 +23,19 @@ void enterSleepMode()
 
     esp_deep_sleep_disable_rom_logging(); // Disable ROM logging to save power
 
-    esp_sleep_enable_ext1_wakeup(1ULL << PIN_USB_DETECT, ESP_EXT1_WAKEUP_ANY_HIGH); // Enable wakeup when USB is connected
-    esp_sleep_enable_timer_wakeup(DEEP_SLEEP_DURATION * 1000000);                  // Configure timer wake up for 60 seconds
+    // Check current USB state and configure wakeup accordingly
+    if (connected)
+    {
+        // USB is connected, wake up when disconnected (HIGH→LOW)
+        esp_sleep_enable_ext1_wakeup(1ULL << PIN_USB_DETECT, ESP_EXT1_WAKEUP_ANY_LOW);
+    }
+    else
+    {
+        // USB is not connected, wake up when connected (LOW→HIGH)
+        esp_sleep_enable_ext1_wakeup(1ULL << PIN_USB_DETECT, ESP_EXT1_WAKEUP_ANY_HIGH);
+    }
+
+    esp_sleep_enable_timer_wakeup(duration * 1000000); // Configure timer wake up
 
     esp_deep_sleep_start(); // Enter deep sleep
 }
