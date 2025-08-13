@@ -48,17 +48,17 @@ namespace
     constexpr uint16_t BATTERY_ICON_Y = DISPLAY_MARGIN + 2;
 
     // CO2 label and value positions (top half, centered)
-    constexpr uint16_t CO2_LABEL_Y = DISPLAY_MARGIN + 18;
-    constexpr uint16_t CO2_VALUE_Y = 100;
+    constexpr uint16_t CO2_LABEL_Y = DISPLAY_CENTER_Y - 18;
+    constexpr uint16_t CO2_VALUE_Y = 80;
 
     // Humidity positions (bottom left quadrant)
-    constexpr uint16_t HUMIDITY_LABEL_Y = DISPLAY_CENTER_Y + 18;
-    constexpr uint16_t HUMIDITY_VALUE_Y = DISPLAY_HEIGHT - 50;
+    constexpr uint16_t HUMIDITY_LABEL_Y = DISPLAY_HEIGHT - 18;
+    constexpr uint16_t HUMIDITY_VALUE_Y = DISPLAY_HEIGHT - 70;
     constexpr uint16_t HUMIDITY_CENTER_X = DISPLAY_CENTER_X / 2;
 
     // Temperature positions (bottom right quadrant)
-    constexpr uint16_t TEMPERATURE_LABEL_Y = DISPLAY_CENTER_Y + 18;
-    constexpr uint16_t TEMPERATURE_VALUE_Y = DISPLAY_HEIGHT - 50;
+    constexpr uint16_t TEMPERATURE_LABEL_Y = DISPLAY_HEIGHT - 18;
+    constexpr uint16_t TEMPERATURE_VALUE_Y = DISPLAY_HEIGHT - 70;
     constexpr uint16_t TEMPERATURE_CENTER_X = DISPLAY_CENTER_X + (DISPLAY_CENTER_X / 2);
 
     static const uint8_t flash_icon[] = {

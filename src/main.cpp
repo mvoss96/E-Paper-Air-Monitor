@@ -14,8 +14,8 @@ struct RtcData
   uint16_t wakeCount = 0;        // Wake count to track deep sleep cycles
 };
 
-static constexpr uint32_t DEEP_SLEEP_DURATION = 60;          // Deep sleep duration in seconds (60 seconds = 1 minute)
-static constexpr uint32_t DEEP_SLEEP_DURATION_CONNECTED = 5; // Deep sleep duration when USB is connected (5 seconds)
+static constexpr uint32_t DEEP_SLEEP_DURATION = 60;           // Deep sleep duration in seconds
+static constexpr uint32_t DEEP_SLEEP_DURATION_CONNECTED = 30; // Deep sleep duration when USB is connected
 RTC_DATA_ATTR RtcData rtcData{};
 Sensor sensor;
 
