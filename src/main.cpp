@@ -92,6 +92,7 @@ void usbMode(bool reboot)
   auto measurement = sensor.getMeasurement();
 
   setUSBConnected(true);
+  setBatteryPercent(100);
   setCo2Value(measurement.co2);
   setErrorState(measurement.error);
   setHumidityValue(measurement.humidity);

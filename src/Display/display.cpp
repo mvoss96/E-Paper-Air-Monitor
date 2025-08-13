@@ -154,15 +154,26 @@ namespace
         uint16_t x = BATTERY_ICON_X;
         uint16_t y = BATTERY_ICON_Y;
 
+        const uint8_t flash_icon[] = {
+            0x00, 0x80, 0x00, 0x80, 0x01, 0x80, 0x03, 0x80, 0x03, 0x00, 0x07, 0x00, 0x07, 0xf8, 0x0f, 0xf0,
+            0x0f, 0xf0, 0x1f, 0xe0, 0x00, 0xe0, 0x01, 0xc0, 0x01, 0xc0, 0x01, 0x80, 0x01, 0x00, 0x01, 0x00};
+
         // Draw a outline of the battery icon
         display.fillRect(x, y, BATTERY_ICON_WIDTH, BATTERY_ICON_HEIGHT, GxEPD_BLACK);
         // Draw the battery tip
         display.fillRect(x + BATTERY_ICON_WIDTH, y + 4, 4, 8, GxEPD_BLACK);
         // Draw white border inside the battery
         display.fillRect(x + 1, y + 1, BATTERY_ICON_WIDTH - 2, BATTERY_ICON_HEIGHT - 2, GxEPD_WHITE);
+
         // Draw battery level indicator
-        uint16_t batteryLevelWidth = (BATTERY_ICON_WIDTH - 3) * currentState.batteryPercent / 100;
+        uint16_t batteryLevelWidth = (BATTERY_ICON_WIDTH - 4) * currentState.batteryPercent / 100;
         display.fillRect(x + 2, y + 2, batteryLevelWidth, BATTERY_ICON_HEIGHT - 4, GxEPD_BLACK);
+
+        if (currentState.usbConnected)
+        {
+            // Draw flash_icon
+            display.drawBitmap(x - 16, y, flash_icon, 16, 16, GxEPD_BLACK);
+        }
     }
 
     void drawBattery()
