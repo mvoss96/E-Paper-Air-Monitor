@@ -4,7 +4,7 @@
 #include <Arduino.h>
 
 static constexpr uint32_t BAT_EMPTY_VOLTAGE = 3000;      // Empty battery voltage in mV
-static constexpr uint32_t BAT_FULL_VOLTAGE = 4200;       // Full battery voltage in mV
+static constexpr uint32_t BAT_FULL_VOLTAGE = 4150;       // Full battery voltage in mV
 static constexpr float BAT_VOLTAGE_DIVIDER_RATIO = 4.38; // Voltage divider ratio for battery voltage measurement
 
 void enterSleepMode(uint16_t duration, bool connected)

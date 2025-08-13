@@ -22,6 +22,8 @@ namespace
     constexpr uint16_t DISPLAY_CENTER_X = DISPLAY_WIDTH / 2;                 // Center X position
     constexpr uint16_t DISPLAY_CENTER_Y = DISPLAY_HEIGHT / 2;                // Center Y position
     constexpr uint16_t UNIT_SPACING = 12;                                    // Spacing between value and unit
+    constexpr uint16_t BATTERY_ICON_WIDTH = 20;                              // Width of the battery icon
+    constexpr uint16_t BATTERY_ICON_HEIGHT = 15;                             // Height of the battery icon
     constexpr const char *LABEL_HUMIDITY = "Humidity";
     constexpr const char *LABEL_TEMPERATURE = "Temperature";
     constexpr const char *LABEL_CO2 = "CO2";
@@ -41,9 +43,9 @@ namespace
     constexpr uint16_t CLOCK_X = DISPLAY_MARGIN;
     constexpr uint16_t CLOCK_Y = DISPLAY_MARGIN + 18;
 
-    // Battery percentage positions (top right corner)
-    constexpr uint16_t BATTERY_PERCENT_X = DISPLAY_WIDTH - DISPLAY_MARGIN - 45;
-    constexpr uint16_t BATTERY_PERCENT_Y = DISPLAY_MARGIN + 18;
+    // Battery icon positions (top right corner)
+    constexpr uint16_t BATTERY_ICON_X = DISPLAY_WIDTH - DISPLAY_MARGIN - BATTERY_ICON_WIDTH - 10;
+    constexpr uint16_t BATTERY_ICON_Y = DISPLAY_MARGIN + 2;
 
     // CO2 label and value positions (top half, centered)
     constexpr uint16_t CO2_LABEL_Y = DISPLAY_MARGIN + 18;
@@ -71,7 +73,7 @@ namespace
         bool error = false;         // Error State
     } currentState, previousState;
 
-    bool showClock = false;                            // Flag for showing clock
+    bool showClock = false;                           // Flag for showing clock
     bool fullRefresh = false;                         // Flag for full screen refresh
     char stringBuffer[16];                            // Shared string buffer to avoid repeated allocations
     RTC_DATA_ATTR uint16_t displayRefreshCounter = 0; // Counter for partial updates. Preserved in RTC memory
@@ -147,20 +149,25 @@ namespace
         display.print(stringBuffer);
     }
 
-    void drawBatteryPercent()
+    void drawBatteryIcon()
     {
-        display.setFont(FONT_CLOCK);
-        display.setTextColor(GxEPD_BLACK);
-        display.setCursor(BATTERY_PERCENT_X, BATTERY_PERCENT_Y);
-        if (currentState.usbConnected)
-        {
-            display.print("USB");
-        }
-        else
-        {
-            snprintf(stringBuffer, sizeof(stringBuffer), "%u", currentState.batteryPercent);
-            display.print(stringBuffer);
-        }
+        uint16_t x = BATTERY_ICON_X;
+        uint16_t y = BATTERY_ICON_Y;
+
+        // Draw a outline of the battery icon
+        display.fillRect(x, y, BATTERY_ICON_WIDTH, BATTERY_ICON_HEIGHT, GxEPD_BLACK);
+        // Draw the battery tip
+        display.fillRect(x + BATTERY_ICON_WIDTH, y + 4, 4, 8, GxEPD_BLACK);
+        // Draw white border inside the battery
+        display.fillRect(x + 1, y + 1, BATTERY_ICON_WIDTH - 2, BATTERY_ICON_HEIGHT - 2, GxEPD_WHITE);
+        // Draw battery level indicator
+        uint16_t batteryLevelWidth = (BATTERY_ICON_WIDTH - 3) * currentState.batteryPercent / 100;
+        display.fillRect(x + 2, y + 2, batteryLevelWidth, BATTERY_ICON_HEIGHT - 4, GxEPD_BLACK);
+    }
+
+    void drawBattery()
+    {
+        drawBatteryIcon();
     }
 
     void drawCo2()
@@ -187,7 +194,7 @@ namespace
             }
 
         } while (gpio_get_level((gpio_num_t)PIN_BUSY)); // Wait for display to finish updating
-        
+
         setCpuFrequencyMhz(MAX_CPU_FREQ); // Restore CPU frequency after busy wait
     }
 
@@ -259,8 +266,8 @@ void updateDisplay(bool partial)
             drawClock(currentState.hours, currentState.minutes);
         }
 
-        // Always draw battery percentage
-        drawBatteryPercent();
+        // Always draw battery icon
+        drawBattery();
         fullRefresh = !partial; // Set flag for full screen refresh
         display.display(partial);
         fullRefresh = false; // Reset flag after display update
