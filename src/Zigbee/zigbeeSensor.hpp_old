@@ -1,0 +1,7 @@
+#pragma once
+
+bool initZigbeeSensors();
+void connectZigbee();
+void resetZigbeeSensors();
+void reportZigbeeSensors(float co2, uint8_t batteryPercent);
+

@@ -1,6 +1,7 @@
 #include "Display/display.hpp"
 #include "Sensor/sensor.hpp"
 #include "PowerManagement/powerManagement.hpp"
+#include "BLE/ble.hpp"
 
 #include <driver/rtc_io.h>
 #include <Arduino.h>
@@ -11,6 +12,8 @@ struct RtcData
   uint16_t co2Value = 0;         // CO2 value in PPM
   uint16_t humidityValue = 0;    // Humidity value in % * 100
   uint16_t temperatureValue = 0; // Temperature value in C * 100
+  uint16_t batteryVoltage = 0;   // Battery voltage in mV
+  uint8_t batteryPercent = 0;    // Battery percentage
   uint16_t wakeCount = 0;        // Wake count to track deep sleep cycles
 };
 
@@ -26,6 +29,8 @@ void initGpio()
   pinMode(PIN_CS, OUTPUT);         // Set CS pin as output
   pinMode(PIN_BAT_VOLTAGE, INPUT); // Set Battery Voltage pin as input
   pinMode(PIN_USB_DETECT, INPUT);  // Set USB Detect pin as input
+  pinMode(PIN_BTN, INPUT_PULLUP);  // Set Button pin as input with pull-up resistor
+  pinMode(PIN_LED, OUTPUT);        // Set LED pin as output
 
   rtc_gpio_init((gpio_num_t)PIN_RST);                                     // Initialize the RTC GPIO port
   rtc_gpio_set_direction((gpio_num_t)PIN_RST, RTC_GPIO_MODE_OUTPUT_ONLY); // Set the port to output only mode
@@ -47,11 +52,6 @@ bool getUsbConnected()
 
 void batteryMode(bool reboot)
 {
-  // Read Battery Voltage
-  uint32_t batteryVoltage = readBatteryVoltage();
-  uint8_t batteryPercent = getBatteryPercentage(batteryVoltage);
-  Serial.printf("Battery Voltage: %u mV, Percentage: %u%%\n", batteryVoltage, batteryPercent);
-
   if (reboot)
   {
     rtcData.wakeCount++;
@@ -65,47 +65,6 @@ void batteryMode(bool reboot)
   {
     sensor.updateFast(); // Fast update for temperature and humidity only
   }
-
-  Sensor::Measurement measurement = sensor.getMeasurement(); // Get the latest sensor values
-  if (measurement.co2 > 0)                                   // Update CO2 value in RTC memory
-  {
-    rtcData.co2Value = measurement.co2;
-  }
-  rtcData.humidityValue = measurement.humidity;
-  rtcData.temperatureValue = measurement.temperature;
-
-  setBatteryPercent(batteryPercent);
-  setCo2Value(rtcData.co2Value);
-  setErrorState(measurement.error);
-  setHumidityValue(rtcData.humidityValue);
-  setTemperatureValue(rtcData.temperatureValue);
-  setUSBConnected(false);
-
-  updateDisplay(reboot);
-  enterSleepMode(DEEP_SLEEP_DURATION, false);
-}
-
-void usbMode(bool reboot)
-{
-  unsigned long startTime = millis();
-  sensor.update();
-  auto measurement = sensor.getMeasurement();
-
-  setUSBConnected(true);
-  setBatteryPercent(100);
-  setCo2Value(measurement.co2);
-  setErrorState(measurement.error);
-  setHumidityValue(measurement.humidity);
-  setTemperatureValue(measurement.temperature);
-
-  // Update RTC
-  rtcData.co2Value = measurement.co2;
-  rtcData.humidityValue = measurement.humidity;
-  rtcData.temperatureValue = measurement.temperature;
-  rtcData.wakeCount = 0;
-
-  updateDisplay(true);
-  enterSleepMode(DEEP_SLEEP_DURATION_CONNECTED, true);
 }
 
 void setup()
@@ -113,7 +72,10 @@ void setup()
   Serial.begin(115200);
   Serial.println("\n---Starting E-Paper Air Monitor---");
 
+  bleInit();
+  bleUpdatePayload(rtcData.humidityValue, rtcData.temperatureValue, rtcData.co2Value, rtcData.batteryVoltage, rtcData.batteryPercent);
   initGpio(); // Initialize GPIO pins
+
   bool reboot = esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT1;
   if (reboot)
   {
@@ -125,16 +87,38 @@ void setup()
   }
   sensor.begin(reboot);
 
-  if (getUsbConnected())
+  bool usbConnected = getUsbConnected();
+  if (usbConnected)
   {
-    Serial.println("USB is connected, entering USB mode...");
-    usbMode(reboot);
+    Serial.println("USB is connected");
+    sensor.update();
   }
   else
   {
     Serial.println("USB is not connected, entering battery mode...");
     batteryMode(reboot);
   }
+  auto measurement = sensor.getMeasurement();
+  if (measurement.co2 > 0)
+  {
+    rtcData.co2Value = measurement.co2;
+  }
+  rtcData.humidityValue = measurement.humidity;
+  rtcData.temperatureValue = measurement.temperature;
+  rtcData.batteryVoltage = readBatteryVoltage();
+  rtcData.batteryPercent = getBatteryPercentage(rtcData.batteryVoltage);
+
+  setUSBConnected(usbConnected);
+  setBatteryPercent(rtcData.batteryPercent);
+  setCo2Value(rtcData.co2Value);
+  setErrorState(measurement.error);
+  setHumidityValue(rtcData.humidityValue);
+  setTemperatureValue(rtcData.temperatureValue);
+  setUSBConnected(false);
+  updateDisplay(reboot);
+
+  bleStopAdvertising();
+  enterSleepMode(usbConnected ? DEEP_SLEEP_DURATION_CONNECTED : DEEP_SLEEP_DURATION, usbConnected);
 }
 
 void loop()

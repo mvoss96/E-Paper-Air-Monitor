@@ -35,6 +35,9 @@ void enterSleepMode(uint16_t duration, bool connected)
         esp_sleep_enable_ext1_wakeup(1ULL << PIN_USB_DETECT, ESP_EXT1_WAKEUP_ANY_HIGH);
     }
 
+    // Always wake up on BTN
+    //esp_sleep_enable_ext1_wakeup(1ULL << PIN_BTN, ESP_EXT1_WAKEUP_ANY_LOW);
+
     esp_sleep_enable_timer_wakeup(duration * 1000000); // Configure timer wake up
 
     esp_deep_sleep_start(); // Enter deep sleep
@@ -51,5 +54,8 @@ uint8_t getBatteryPercentage(uint32_t batteryVoltage)
     {
         batteryVoltage = readBatteryVoltage(); // Read battery voltage if not provided
     }
-    return map(batteryVoltage, BAT_EMPTY_VOLTAGE, BAT_FULL_VOLTAGE, 0, 100);
+    int percent = map(batteryVoltage, BAT_EMPTY_VOLTAGE, BAT_FULL_VOLTAGE, 0, 100);
+    if (percent < 0) percent = 0;
+    if (percent > 100) percent = 100;
+    return percent;
 }

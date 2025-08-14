@@ -1,0 +1,91 @@
+#include "Zigbee.h"
+#include <Arduino.h>
+
+constexpr uint8_t CARBON_DIOXIDE_SENSOR_ENDPOINT_NUMBER = 10;
+constexpr char *SENSOR_NAME = "SmartAirQualityMonitor";
+constexpr char *MANUFACTURER_NAME = "MarcusVoss";
+
+static ZigbeeCarbonDioxideSensor zbCarbonDioxideSensor = ZigbeeCarbonDioxideSensor(CARBON_DIOXIDE_SENSOR_ENDPOINT_NUMBER);
+
+bool initZigbeeSensors()
+{
+    zbCarbonDioxideSensor.setManufacturerAndModel(MANUFACTURER_NAME, SENSOR_NAME);
+    zbCarbonDioxideSensor.setMinMaxValue(0, 1500);
+    //zbCarbonDioxideSensor.setPowerSource(ZB_POWER_SOURCE_BATTERY, 100);
+    Zigbee.addEndpoint(&zbCarbonDioxideSensor);
+
+    // For battery powered devices, it can be better to set timeout for Zigbee Begin to lower value to save battery
+    // If the timeout has been reached, the network channel mask will be reset and the device will try to connect again after reset (scanning all channels)
+    esp_zb_cfg_t zigbeeConfig = ZIGBEE_DEFAULT_ED_CONFIG();
+    zigbeeConfig.nwk_cfg.zed_cfg.keep_alive = 10000;
+
+    if (!Zigbee.begin(&zigbeeConfig, false))
+    {
+        Serial.println("Zigbee initialization failed!");
+        return false;
+    }
+    Serial.println("Zigbee started!");
+    return true;
+}
+
+void connectZigbee()
+{
+    if (!Zigbee.connected())
+    {
+        Serial.println("Waiting for Zigbee connection ");
+        bool ledState = false;
+        unsigned long startTime = millis();
+
+        while (!Zigbee.connected())
+        {
+            digitalWrite(PIN_LED, ledState ? HIGH : LOW);
+            ledState = !ledState;
+            Serial.print(".");
+            delay(500);
+
+            if (millis() - startTime > 10000)
+            {
+                Serial.print(" timed out");
+                break;
+            }
+        }
+        Serial.println();
+    }
+    Serial.println("Zigbee already connected");
+}
+
+void reportZigbeeSensors(float co2, uint8_t batteryPercent)
+{
+    if (Zigbee.connected())
+    {
+        Serial.printf("Zigbee reporting CO2: %.2f\n", co2);
+        zbCarbonDioxideSensor.setCarbonDioxide(co2);
+        //zbCarbonDioxideSensor.setBatteryPercentage(batteryPercent);
+        zbCarbonDioxideSensor.report();
+
+        unsigned long startTime = millis();
+        const unsigned long timeout = 1000;
+
+        Serial.printf("Waiting for data report to be confirmed \r\n");
+        // Wait until data was successfully sent
+        int tries = 0;
+        const int maxTries = 3;
+        while (tries < maxTries)
+        {
+            if (millis() - startTime >= timeout)
+            {
+                Serial.println("\nReport timeout! Report Again");
+                zbCarbonDioxideSensor.report(); // report again
+                startTime = millis();
+                tries++;
+            }
+            Serial.printf(".");
+            delay(50); // 50ms delay to avoid busy-waiting
+        }
+    }
+}
+
+void resetZigbeeSensors()
+{
+    Zigbee.factoryReset();
+}
