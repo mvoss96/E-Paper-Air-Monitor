@@ -108,7 +108,6 @@ void setup()
 
   bleInit();
   bleUpdatePayload(rtcData.humidityValue, rtcData.temperatureValue, rtcData.co2Value, rtcData.batteryVoltage, rtcData.batteryPercent);
-  delay(100);
   
   setUSBConnected(usbConnected);
   setBatteryPercent(rtcData.batteryPercent);

@@ -59,10 +59,13 @@ void bleUpdatePayload(uint16_t humidity, uint16_t temperature, uint16_t carbonDi
     bthomeData.toPayload(payload);
 
     pAdvertising = BLEDevice::getAdvertising();
-    pAdvertising->setAdvertisingInterval(40); // Interval in 0.625ms units -> 25ms
     BLEAdvertisementData oAdvertisementData = BLEAdvertisementData();
     pAdvertising->setServiceData(NimBLEUUID((uint16_t)0xFCD2), std::string((char *)payload, BTHomeData::payloadSize));
     pAdvertising->setConnectableMode(0);
+    pAdvertising->setAdvertisingInterval(40); // Interval in 0.625ms units -> 25ms
+    pAdvertising->setAdvertisingCompleteCallback([](NimBLEAdvertising*){
+        Serial.println("BLE advertising complete");
+    });
     pAdvertising->start();
 }
 

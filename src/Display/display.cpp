@@ -242,6 +242,7 @@ namespace
 
 void updateDisplay(bool partial)
 {
+    Serial.printf("Updating display (partial: %d)\n", partial);
     // Force full refresh after a certain number of partial updates
     if (displayRefreshCounter++ >= DISPLAY_FULL_REFRESH_INTERVAL)
     {
@@ -285,6 +286,7 @@ void updateDisplay(bool partial)
         previousState = currentState;
         display.hibernate();
     }
+    Serial.printf("Display update complete\n");
 }
 
 void setErrorState(bool error)
