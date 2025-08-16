@@ -1,5 +1,7 @@
 #include "ble.hpp"
-#include <ArduinoBLE.h>
+// #include <ArduinoBLE.h>
+#include "NimBLEDevice.h"
+#include <NimBLEBeacon.h>
 
 namespace
 {
@@ -34,25 +36,15 @@ namespace
     };
 
     BTHomeData bthomeData{};
-    constexpr const char *DEVICE_NAME = "SmartCo2";
+    constexpr const char *DEVICE_NAME = "AirMonitor";
     uint8_t payload[BTHomeData::payloadSize];
+    BLEAdvertising *pAdvertising;
 }
 
 void bleInit()
 {
     Serial.println("Initializing BLE...");
-    BLE.begin();
-    //BLE.setAdvertisingInterval(32); // 20ms
-    //BLE.setDeviceName(DEVICE_NAME);
-    BLE.setLocalName(DEVICE_NAME);
-}
-
-void bleStartAdvertising()
-{
-    Serial.println("Starting BLE advertising...");
-    if (!BLE.advertise()){
-        Serial.println("Failed to start BLE advertising");
-    }
+    BLEDevice::init(DEVICE_NAME);
 }
 
 void bleUpdatePayload(uint16_t humidity, uint16_t temperature, uint16_t carbonDioxide, uint16_t voltage, uint8_t battery)
@@ -65,14 +57,17 @@ void bleUpdatePayload(uint16_t humidity, uint16_t temperature, uint16_t carbonDi
     bthomeData.voltage = voltage;
     bthomeData.battery = battery;
     bthomeData.toPayload(payload);
-    BLE.setAdvertisedServiceData(BTHOME::SERVICE_UUID, payload, BTHomeData::payloadSize);
-    if (!BLE.advertise()){
-        Serial.println("Failed to start BLE advertising");
-    }
+
+    pAdvertising = BLEDevice::getAdvertising();
+    pAdvertising->setAdvertisingInterval(40); // Interval in 0.625ms units -> 25ms
+    BLEAdvertisementData oAdvertisementData = BLEAdvertisementData();
+    pAdvertising->setServiceData(NimBLEUUID((uint16_t)0xFCD2), std::string((char *)payload, BTHomeData::payloadSize));
+    pAdvertising->setConnectableMode(0);
+    pAdvertising->start();
 }
 
 void bleStopAdvertising()
 {
     Serial.println("Stopping BLE advertising...");
-    BLE.stopAdvertise();
+    pAdvertising->stop();
 }

@@ -72,8 +72,6 @@ void setup()
   Serial.begin(115200);
   Serial.println("\n---Starting E-Paper Air Monitor---");
 
-  bleInit();
-  bleUpdatePayload(rtcData.humidityValue, rtcData.temperatureValue, rtcData.co2Value, rtcData.batteryVoltage, rtcData.batteryPercent);
   initGpio(); // Initialize GPIO pins
 
   bool reboot = esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT1;
@@ -108,6 +106,10 @@ void setup()
   rtcData.batteryVoltage = readBatteryVoltage();
   rtcData.batteryPercent = getBatteryPercentage(rtcData.batteryVoltage);
 
+  bleInit();
+  bleUpdatePayload(rtcData.humidityValue, rtcData.temperatureValue, rtcData.co2Value, rtcData.batteryVoltage, rtcData.batteryPercent);
+  delay(100);
+  
   setUSBConnected(usbConnected);
   setBatteryPercent(rtcData.batteryPercent);
   setCo2Value(rtcData.co2Value);
