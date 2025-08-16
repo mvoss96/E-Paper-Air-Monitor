@@ -36,7 +36,7 @@ void enterSleepMode(uint16_t duration, bool connected)
     }
 
     // Always wake up on BTN
-    //esp_sleep_enable_ext1_wakeup(1ULL << PIN_BTN, ESP_EXT1_WAKEUP_ANY_LOW);
+    // esp_sleep_enable_ext1_wakeup(1ULL << PIN_BTN, ESP_EXT1_WAKEUP_ANY_LOW);
 
     esp_sleep_enable_timer_wakeup(duration * 1000000); // Configure timer wake up
 
@@ -55,7 +55,9 @@ uint8_t getBatteryPercentage(uint32_t batteryVoltage)
         batteryVoltage = readBatteryVoltage(); // Read battery voltage if not provided
     }
     int percent = map(batteryVoltage, BAT_EMPTY_VOLTAGE, BAT_FULL_VOLTAGE, 0, 100);
-    if (percent < 0) percent = 0;
-    if (percent > 100) percent = 100;
+    if (percent < 0)
+        percent = 0;
+    if (percent > 100)
+        percent = 100;
     return percent;
 }

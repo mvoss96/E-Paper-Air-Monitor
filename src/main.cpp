@@ -12,8 +12,8 @@ struct RtcData
   uint16_t co2Value = 0;         // CO2 value in PPM
   uint16_t humidityValue = 0;    // Humidity value in % * 100
   uint16_t temperatureValue = 0; // Temperature value in C * 100
-  uint16_t batteryVoltage = 0;   // Battery voltage in mV
-  uint8_t batteryPercent = 0;    // Battery percentage
+  uint16_t batteryVoltage = 0;   // Battery voltage in mV (smoothed)
+  uint8_t batteryPercent = 0;    // Battery percentage (smoothed)
   uint16_t wakeCount = 0;        // Wake count to track deep sleep cycles
 };
 
@@ -103,12 +103,14 @@ void setup()
   }
   rtcData.humidityValue = measurement.humidity;
   rtcData.temperatureValue = measurement.temperature;
-  rtcData.batteryVoltage = readBatteryVoltage();
+
+  // Read and smooth battery voltage
+  rtcData.batteryVoltage = smoothValue<uint16_t>(readBatteryVoltage(), rtcData.batteryVoltage);
   rtcData.batteryPercent = getBatteryPercentage(rtcData.batteryVoltage);
 
   bleInit();
   bleUpdatePayload(rtcData.humidityValue, rtcData.temperatureValue, rtcData.co2Value, rtcData.batteryVoltage, rtcData.batteryPercent);
-  
+
   setUSBConnected(usbConnected);
   setBatteryPercent(rtcData.batteryPercent);
   setCo2Value(rtcData.co2Value);
